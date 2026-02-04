@@ -1,0 +1,1 @@
+"""Moteur de simulation électorale."""
