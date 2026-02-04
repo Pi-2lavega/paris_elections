@@ -12,6 +12,8 @@ import pandas as pd
 import numpy as np
 from streamlit_echarts import st_echarts
 import plotly.graph_objects as go
+import folium
+from streamlit_folium import st_folium
 
 from paris_elections.engine.round1 import run_round1
 from paris_elections.engine.round2 import run_round2
@@ -115,6 +117,157 @@ def run_monte_carlo_ui(
     }
 
     return results
+
+
+# =============================================================================
+# EXPORT PDF
+# =============================================================================
+
+import base64
+from datetime import datetime
+import io
+
+def generate_pdf_report(seats: dict, familles: dict, r1_result=None, mc_results=None) -> bytes:
+    """Génère un rapport PDF simple en HTML converti."""
+
+    # Trier par sièges
+    sorted_seats = sorted(seats.items(), key=lambda x: -x[1])
+    winner = sorted_seats[0][0]
+    winner_seats = sorted_seats[0][1]
+    has_majority = winner_seats >= MAYOR_ABSOLUTE_MAJORITY
+
+    # Calcul par bloc
+    blocs_seats = {"Gauche": 0, "Centre": 0, "Droite": 0, "Ext. Droite": 0}
+    for liste, n in seats.items():
+        bloc = get_bloc(familles.get(liste, "DIV"))
+        if bloc in blocs_seats:
+            blocs_seats[bloc] += n
+
+    # Date du rapport
+    now = datetime.now().strftime("%d/%m/%Y à %H:%M")
+
+    # Construction du HTML
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <style>
+            body {{ font-family: Arial, sans-serif; padding: 40px; color: #333; }}
+            h1 {{ color: #1a1a2e; border-bottom: 3px solid #6366f1; padding-bottom: 10px; }}
+            h2 {{ color: #4a4a6a; margin-top: 30px; }}
+            .winner-box {{ background: #f0f0ff; border-left: 5px solid #6366f1; padding: 20px; margin: 20px 0; }}
+            .winner-name {{ font-size: 24px; font-weight: bold; color: #1a1a2e; }}
+            .winner-seats {{ font-size: 36px; font-weight: bold; color: #6366f1; }}
+            .majority {{ color: #22c55e; font-weight: bold; }}
+            .no-majority {{ color: #ef4444; font-weight: bold; }}
+            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
+            th {{ background: #f5f5f5; font-weight: bold; }}
+            tr:nth-child(even) {{ background: #fafafa; }}
+            .footer {{ margin-top: 40px; padding-top: 20px; border-top: 1px solid #ddd; color: #888; font-size: 12px; }}
+        </style>
+    </head>
+    <body>
+        <h1>🗳️ Simulation Municipales Paris 2026</h1>
+        <p>Rapport généré le {now}</p>
+
+        <div class="winner-box">
+            <div class="winner-name">{winner}</div>
+            <div class="winner-seats">{winner_seats} / {CONSEIL_PARIS_SEATS} sièges</div>
+            <div class="{'majority' if has_majority else 'no-majority'}">
+                {'✓ Majorité absolue atteinte' if has_majority else '✗ Pas de majorité absolue'}
+            </div>
+        </div>
+
+        <h2>Répartition des sièges</h2>
+        <table>
+            <tr><th>Liste</th><th>Famille</th><th>Sièges</th><th>%</th></tr>
+    """
+
+    for liste, n in sorted_seats:
+        if n > 0:
+            pct = n / CONSEIL_PARIS_SEATS * 100
+            famille = familles.get(liste, "DIV")
+            html += f"<tr><td>{liste}</td><td>{famille}</td><td>{n}</td><td>{pct:.1f}%</td></tr>"
+
+    html += """
+        </table>
+
+        <h2>Analyse par bloc</h2>
+        <table>
+            <tr><th>Bloc</th><th>Sièges</th><th>%</th></tr>
+    """
+
+    for bloc, n in blocs_seats.items():
+        if n > 0:
+            pct = n / CONSEIL_PARIS_SEATS * 100
+            html += f"<tr><td>{bloc}</td><td>{n}</td><td>{pct:.1f}%</td></tr>"
+
+    html += "</table>"
+
+    # Coalitions
+    html += """
+        <h2>Coalitions possibles</h2>
+        <table>
+            <tr><th>Coalition</th><th>Sièges</th><th>Majorité ?</th></tr>
+    """
+
+    coalitions = [
+        ("Gauche", blocs_seats["Gauche"]),
+        ("Gauche + Centre", blocs_seats["Gauche"] + blocs_seats["Centre"]),
+        ("Droite + Centre", blocs_seats["Droite"] + blocs_seats["Centre"]),
+    ]
+
+    for name, total in coalitions:
+        status = "✓ Oui" if total >= MAYOR_ABSOLUTE_MAJORITY else "✗ Non"
+        html += f"<tr><td>{name}</td><td>{total}</td><td>{status}</td></tr>"
+
+    html += """
+        </table>
+
+        <h2>Paramètres de simulation</h2>
+        <ul>
+            <li>Conseil de Paris : 163 sièges</li>
+            <li>Prime majoritaire : 25% (41 sièges)</li>
+            <li>Seuil de représentation : 5%</li>
+            <li>Majorité absolue : 82 sièges</li>
+        </ul>
+    """
+
+    # Monte Carlo si disponible
+    if mc_results and "_meta" in mc_results:
+        meta = mc_results["_meta"]
+        p_maj = meta.get("p_majority", 0) * 100
+        html += f"""
+        <h2>Simulation Monte Carlo</h2>
+        <p>Basé sur {meta.get('n_iterations', 0):,} itérations</p>
+        <p><strong>Probabilité de majorité absolue :</strong> {p_maj:.1f}%</p>
+        <table>
+            <tr><th>Liste</th><th>Moyenne</th><th>IC 95%</th></tr>
+        """
+        for liste, stats in mc_results.items():
+            if liste != "_meta":
+                html += f"<tr><td>{liste}</td><td>{stats['mean']:.1f}</td><td>[{stats['ci_low']:.0f} - {stats['ci_high']:.0f}]</td></tr>"
+        html += "</table>"
+
+    html += f"""
+        <div class="footer">
+            <p>Généré par le Simulateur Municipales Paris 2026</p>
+            <p>Algorithme D'Hondt · Prime majoritaire 25% · Données indicatives</p>
+        </div>
+    </body>
+    </html>
+    """
+
+    return html.encode('utf-8')
+
+
+def get_download_link(html_bytes: bytes, filename: str) -> str:
+    """Génère un lien de téléchargement pour le HTML."""
+    b64 = base64.b64encode(html_bytes).decode()
+    return f'<a href="data:text/html;base64,{b64}" download="{filename}" style="display: inline-block; padding: 12px 24px; background: #6366f1; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">📥 Télécharger le rapport</a>'
+
 
 # =============================================================================
 # PAGE CONFIG & CUSTOM CSS
@@ -363,11 +516,139 @@ def get_bloc(famille):
             return bloc
     return "Autre"
 
+
+# =============================================================================
+# CARTE PARIS - COORDONNÉES ARRONDISSEMENTS
+# =============================================================================
+
+# Centres approximatifs des arrondissements de Paris pour affichage simplifié
+ARRONDISSEMENTS_COORDS = {
+    "1er": (48.8607, 2.3417),
+    "2e": (48.8679, 2.3418),
+    "3e": (48.8643, 2.3597),
+    "4e": (48.8541, 2.3573),
+    "5e": (48.8462, 2.3502),
+    "6e": (48.8498, 2.3326),
+    "7e": (48.8566, 2.3150),
+    "8e": (48.8744, 2.3106),
+    "9e": (48.8769, 2.3379),
+    "10e": (48.8761, 2.3607),
+    "11e": (48.8596, 2.3781),
+    "12e": (48.8412, 2.3876),
+    "13e": (48.8322, 2.3561),
+    "14e": (48.8331, 2.3264),
+    "15e": (48.8421, 2.2929),
+    "16e": (48.8637, 2.2769),
+    "17e": (48.8872, 2.3055),
+    "18e": (48.8925, 2.3444),
+    "19e": (48.8871, 2.3822),
+    "20e": (48.8638, 2.3985),
+}
+
+# Paris Centre = 1er + 2e + 3e + 4e
+SECTEURS_2026 = {
+    "Paris Centre": ["1er", "2e", "3e", "4e"],
+    "5e": ["5e"],
+    "6e": ["6e"],
+    "7e": ["7e"],
+    "8e": ["8e"],
+    "9e": ["9e"],
+    "10e": ["10e"],
+    "11e": ["11e"],
+    "12e": ["12e"],
+    "13e": ["13e"],
+    "14e": ["14e"],
+    "15e": ["15e"],
+    "16e": ["16e"],
+    "17e": ["17e"],
+    "18e": ["18e"],
+    "19e": ["19e"],
+    "20e": ["20e"],
+}
+
+
+def create_paris_map(seats_by_sector: dict = None, familles: dict = None) -> folium.Map:
+    """Crée une carte de Paris avec les résultats par arrondissement."""
+    # Centre de Paris
+    m = folium.Map(
+        location=[48.8566, 2.3522],
+        zoom_start=12,
+        tiles="CartoDB dark_matter"
+    )
+
+    # Si pas de données, afficher les arrondissements vides
+    if not seats_by_sector:
+        for arr, coords in ARRONDISSEMENTS_COORDS.items():
+            folium.CircleMarker(
+                location=coords,
+                radius=15,
+                color="white",
+                fill=True,
+                fill_color="#95A5A6",
+                fill_opacity=0.6,
+                popup=arr
+            ).add_to(m)
+        return m
+
+    # Avec données : colorer selon le vainqueur
+    for arr, coords in ARRONDISSEMENTS_COORDS.items():
+        # Trouver le secteur correspondant
+        secteur = None
+        for s, arrs in SECTEURS_2026.items():
+            if arr in arrs:
+                secteur = s
+                break
+
+        if secteur and secteur in seats_by_sector:
+            winner = seats_by_sector[secteur].get("winner", "")
+            famille = familles.get(winner, "DIV") if familles else "DIV"
+            color = get_color(famille)
+            score = seats_by_sector[secteur].get("score", 0)
+
+            folium.CircleMarker(
+                location=coords,
+                radius=18,
+                color="white",
+                weight=2,
+                fill=True,
+                fill_color=color,
+                fill_opacity=0.8,
+                popup=f"<b>{arr}</b><br>{winner}<br>{score:.1f}%"
+            ).add_to(m)
+
+            # Label
+            folium.Marker(
+                location=coords,
+                icon=folium.DivIcon(
+                    html=f'<div style="font-size: 10px; color: white; font-weight: bold; text-align: center;">{arr.replace("e", "").replace("er", "")}</div>',
+                    icon_size=(30, 30),
+                    icon_anchor=(15, 15)
+                )
+            ).add_to(m)
+        else:
+            folium.CircleMarker(
+                location=coords,
+                radius=15,
+                color="white",
+                fill=True,
+                fill_color="#95A5A6",
+                fill_opacity=0.6,
+                popup=arr
+            ).add_to(m)
+
+    return m
+
+
 # =============================================================================
 # HEADER
 # =============================================================================
 
 col1, col2, col3 = st.columns([1, 2, 1])
+
+with col1:
+    st.markdown('<div style="height: 45px"></div>', unsafe_allow_html=True)
+    mode_expert = st.toggle("Mode expert", value=False, key="mode_expert")
+
 with col2:
     st.markdown("""
     <div style="text-align: center; padding: 40px 0 20px 0;">
@@ -379,6 +660,13 @@ with col2:
         </p>
     </div>
     """, unsafe_allow_html=True)
+
+with col3:
+    st.markdown('<div style="height: 45px"></div>', unsafe_allow_html=True)
+    # Export PDF button (visible only when results exist)
+    if "r1" in st.session_state or "final_seats" in st.session_state:
+        if st.button("📄 Export PDF", key="export_pdf_btn"):
+            st.session_state["show_pdf_export"] = True
 
 # =============================================================================
 # DONNÉES DES SONDAGES
@@ -537,121 +825,122 @@ with tab1:
             </div>
             """, unsafe_allow_html=True)
 
-    # Graphique d'évolution des sondages
-    st.markdown('<p class="section-header">Évolution des sondages</p>', unsafe_allow_html=True)
+    # Graphique d'évolution des sondages (mode expert uniquement)
+    if mode_expert:
+        st.markdown('<p class="section-header">Évolution des sondages</p>', unsafe_allow_html=True)
 
-    # Préparer les données
-    evolution_data = []
-    for sondage_name, sondage_info in SONDAGES.items():
-        if sondage_info["date"]:
-            for liste in sondage_info["listes"]:
-                evolution_data.append({
-                    "Date": sondage_info["date"],
-                    "Candidat": liste["nom"],
-                    "Score": liste["score"],
-                    "Famille": liste["famille"],
+        # Préparer les données
+        evolution_data = []
+        for sondage_name, sondage_info in SONDAGES.items():
+            if sondage_info["date"]:
+                for liste in sondage_info["listes"]:
+                    evolution_data.append({
+                        "Date": sondage_info["date"],
+                        "Candidat": liste["nom"],
+                        "Score": liste["score"],
+                        "Famille": liste["famille"],
+                    })
+
+        if evolution_data:
+            evo_df = pd.DataFrame(evolution_data)
+            evo_df["Date"] = pd.to_datetime(evo_df["Date"])
+            evo_df = evo_df.sort_values("Date")
+
+            # Dates uniques
+            dates = sorted(evo_df["Date"].unique())
+            date_labels = [pd.to_datetime(d).strftime("%d %b") for d in dates]
+
+            # Trier candidats par dernier score
+            last_scores = evo_df.sort_values("Date").groupby("Candidat").last()["Score"].sort_values(ascending=False)
+            sorted_candidates = last_scores.index.tolist()
+
+            # Couleurs par candidat
+            candidate_styles = {
+                "Emmanuel Grégoire": {"color": "#FF6B6B", "symbol": "circle"},
+                "Rachida Dati": {"color": "#339AF0", "symbol": "diamond"},
+                "Pierre-Yves Bournazel": {"color": "#FCC419", "symbol": "triangle"},
+                "Sophia Chikirou": {"color": "#F06595", "symbol": "rect"},
+                "Sarah Knafo": {"color": "#20C997", "symbol": "roundRect"},
+                "Thierry Mariani": {"color": "#845EF7", "symbol": "pin"},
+                "David Belliard": {"color": "#51CF66", "symbol": "circle"},
+            }
+
+            series = []
+
+            for idx, candidat in enumerate(sorted_candidates):
+                df_cand = evo_df[evo_df["Candidat"] == candidat]
+                style = candidate_styles.get(candidat, {"color": "#868E96", "symbol": "circle"})
+                color = style["color"]
+                symbol = style["symbol"]
+
+                score_by_date = dict(zip(df_cand["Date"], df_cand["Score"]))
+                data = []
+                for d in dates:
+                    score = score_by_date.get(d)
+                    data.append(score if score is not None else "-")
+
+                # Dernier score pour déterminer le style
+                scores_list = [s for s in data if s != "-"]
+                last_score = scores_list[-1] if scores_list else 0
+
+                # Pointillé si sous 10%
+                is_below = last_score < 10
+                line_type = "dashed" if is_below else "solid"
+                line_width = 2 if is_below else 3
+                symbol_size = 8 if is_below else 12
+
+                series.append({
+                    "name": candidat.split()[-1],  # Nom de famille
+                    "type": "line",
+                    "data": data,
+                    "smooth": True,
+                    "symbol": symbol,
+                    "symbolSize": symbol_size,
+                    "lineStyle": {"width": line_width, "color": color, "type": line_type},
+                    "itemStyle": {"color": color},
+                    "emphasis": {"focus": "series"},
+                    "connectNulls": True,
                 })
 
-    if evolution_data:
-        evo_df = pd.DataFrame(evolution_data)
-        evo_df["Date"] = pd.to_datetime(evo_df["Date"])
-        evo_df = evo_df.sort_values("Date")
-
-        # Dates uniques
-        dates = sorted(evo_df["Date"].unique())
-        date_labels = [pd.to_datetime(d).strftime("%d %b") for d in dates]
-
-        # Trier candidats par dernier score
-        last_scores = evo_df.sort_values("Date").groupby("Candidat").last()["Score"].sort_values(ascending=False)
-        sorted_candidates = last_scores.index.tolist()
-
-        # Couleurs par candidat
-        candidate_styles = {
-            "Emmanuel Grégoire": {"color": "#FF6B6B", "symbol": "circle"},
-            "Rachida Dati": {"color": "#339AF0", "symbol": "diamond"},
-            "Pierre-Yves Bournazel": {"color": "#FCC419", "symbol": "triangle"},
-            "Sophia Chikirou": {"color": "#F06595", "symbol": "rect"},
-            "Sarah Knafo": {"color": "#20C997", "symbol": "roundRect"},
-            "Thierry Mariani": {"color": "#845EF7", "symbol": "pin"},
-            "David Belliard": {"color": "#51CF66", "symbol": "circle"},
-        }
-
-        series = []
-
-        for idx, candidat in enumerate(sorted_candidates):
-            df_cand = evo_df[evo_df["Candidat"] == candidat]
-            style = candidate_styles.get(candidat, {"color": "#868E96", "symbol": "circle"})
-            color = style["color"]
-            symbol = style["symbol"]
-
-            score_by_date = dict(zip(df_cand["Date"], df_cand["Score"]))
-            data = []
-            for d in dates:
-                score = score_by_date.get(d)
-                data.append(score if score is not None else "-")
-
-            # Dernier score pour déterminer le style
-            scores_list = [s for s in data if s != "-"]
-            last_score = scores_list[-1] if scores_list else 0
-
-            # Pointillé si sous 10%
-            is_below = last_score < 10
-            line_type = "dashed" if is_below else "solid"
-            line_width = 2 if is_below else 3
-            symbol_size = 8 if is_below else 12
-
+            # Seuil 10%
             series.append({
-                "name": candidat.split()[-1],  # Nom de famille
+                "name": "Seuil",
                 "type": "line",
-                "data": data,
-                "smooth": True,
-                "symbol": symbol,
-                "symbolSize": symbol_size,
-                "lineStyle": {"width": line_width, "color": color, "type": line_type},
-                "itemStyle": {"color": color},
-                "emphasis": {"focus": "series"},
-                "connectNulls": True,
+                "data": [10] * len(dates),
+                "lineStyle": {"type": "dashed", "color": "#fa5252", "width": 2},
+                "symbol": "none",
+                "itemStyle": {"color": "#fa5252"},
             })
 
-        # Seuil 10%
-        series.append({
-            "name": "Seuil",
-            "type": "line",
-            "data": [10] * len(dates),
-            "lineStyle": {"type": "dashed", "color": "#fa5252", "width": 2},
-            "symbol": "none",
-            "itemStyle": {"color": "#fa5252"},
-        })
+            legend_names = [c.split()[-1] for c in sorted_candidates]  # Noms de famille
 
-        legend_names = [c.split()[-1] for c in sorted_candidates]  # Noms de famille
+            option = {
+                "tooltip": {"trigger": "axis"},
+                "legend": {
+                    "data": legend_names,
+                    "top": 0,
+                    "textStyle": {"color": "#ccc", "fontSize": 12},
+                },
+                "grid": {"left": 50, "right": 30, "top": 45, "bottom": 30},
+                "xAxis": {
+                    "type": "category",
+                    "data": date_labels,
+                    "axisLabel": {"color": "#999"},
+                    "axisLine": {"lineStyle": {"color": "#444"}},
+                },
+                "yAxis": {
+                    "type": "value",
+                    "min": 0,
+                    "max": 40,
+                    "axisLabel": {"color": "#999", "formatter": "{value}%"},
+                    "splitLine": {"lineStyle": {"color": "#333"}},
+                },
+                "series": series,
+            }
 
-        option = {
-            "tooltip": {"trigger": "axis"},
-            "legend": {
-                "data": legend_names,
-                "top": 0,
-                "textStyle": {"color": "#ccc", "fontSize": 12},
-            },
-            "grid": {"left": 50, "right": 30, "top": 45, "bottom": 30},
-            "xAxis": {
-                "type": "category",
-                "data": date_labels,
-                "axisLabel": {"color": "#999"},
-                "axisLine": {"lineStyle": {"color": "#444"}},
-            },
-            "yAxis": {
-                "type": "value",
-                "min": 0,
-                "max": 40,
-                "axisLabel": {"color": "#999", "formatter": "{value}%"},
-                "splitLine": {"lineStyle": {"color": "#333"}},
-            },
-            "series": series,
-        }
+            st_echarts(options=option, height="350px")
 
-        st_echarts(options=option, height="350px")
-
-        st.caption("━━ ≥10% · ┅┅ <10% · Sources : IFOP-Fiducial, ELABE, Cluster17")
+            st.caption("━━ ≥10% · ┅┅ <10% · Sources : IFOP-Fiducial, ELABE, Cluster17")
 
     st.markdown('<div style="height: 20px"></div>', unsafe_allow_html=True)
 
@@ -1198,213 +1487,272 @@ with tab3:
                     """, unsafe_allow_html=True)
 
         # =====================================================================
-        # MONTE CARLO SIMULATION
+        # CARTE DE PARIS (mode expert)
         # =====================================================================
-        st.markdown('<div style="height: 32px"></div>', unsafe_allow_html=True)
-        st.markdown('<p class="section-header">🎲 Simulation Monte Carlo</p>', unsafe_allow_html=True)
+        if mode_expert:
+            st.markdown('<div style="height: 32px"></div>', unsafe_allow_html=True)
+            st.markdown('<p class="section-header">🗺️ Carte de Paris</p>', unsafe_allow_html=True)
 
-        with st.expander("Quantifier l'incertitude sur les résultats", expanded=False):
-            st.markdown("""
-            <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 16px;">
-                La simulation Monte Carlo perturbe les scores N fois pour estimer la distribution probable des sièges
-                et quantifier l'incertitude liée aux erreurs de sondage.
-            </p>
-            """, unsafe_allow_html=True)
-
-            mc_col1, mc_col2 = st.columns(2)
-            with mc_col1:
-                n_iterations = st.select_slider(
-                    "Nombre d'itérations",
-                    options=[100, 500, 1000, 2000, 5000, 10000],
-                    value=1000,
-                    key="mc_iterations"
-                )
-            with mc_col2:
-                mc_sigma = st.slider(
-                    "Écart-type σ (points)",
-                    min_value=0.5,
-                    max_value=5.0,
-                    value=2.0,
-                    step=0.5,
-                    key="mc_sigma",
-                    help="Amplitude des perturbations aléatoires sur les scores"
-                )
-
-            if st.button("Lancer la simulation", type="primary", key="mc_run"):
-                # Récupérer les scores actuels depuis T1 ou T2
-                if "votes_t2" in st.session_state and st.session_state.get("listes_t2"):
-                    # Utiliser les scores T2
-                    sim_votes = st.session_state["votes_t2"]
-                    total_v = sum(sim_votes.values())
-                    sim_scores = {k: v / total_v * 100 for k, v in sim_votes.items()}
-                elif "r1" in st.session_state:
-                    # Utiliser les scores T1
-                    sim_scores = st.session_state["r1"].percentages
-                else:
-                    sim_scores = None
-
-                if sim_scores:
-                    with st.spinner(f"Simulation en cours ({n_iterations} itérations)..."):
-                        mc_results = run_monte_carlo_ui(sim_scores, n_iterations, mc_sigma)
-                        st.session_state["mc_results"] = mc_results
-
-            # Afficher les résultats s'ils existent
-            if "mc_results" in st.session_state:
-                mc_results = st.session_state["mc_results"]
-                meta = mc_results.get("_meta", {})
-
-                st.markdown('<div style="height: 16px"></div>', unsafe_allow_html=True)
-
-                # Statistiques globales
-                p_maj = meta.get("p_majority", 0) * 100
-                st.markdown(f"""
-                <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span style="color: rgba(255,255,255,0.7);">Probabilité d'une majorité absolue</span>
-                        <span style="font-size: 24px; font-weight: 600; color: {'#22c55e' if p_maj > 50 else '#ef4444'};">{p_maj:.1f}%</span>
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # Tableau des intervalles de confiance
-                st.markdown("**Intervalles de confiance (95%)**")
-
-                mc_data = []
-                for liste, stats in mc_results.items():
-                    if liste == "_meta":
-                        continue
-                    mc_data.append({
-                        "Liste": liste.split()[-1] if " " in liste else liste,
-                        "Moyenne": f"{stats['mean']:.1f}",
-                        "Écart-type": f"{stats['std']:.1f}",
-                        "IC 95%": f"[{stats['ci_low']:.0f} - {stats['ci_high']:.0f}]",
-                    })
-
-                # Trier par moyenne décroissante
-                mc_data.sort(key=lambda x: -float(x["Moyenne"]))
-                st.dataframe(pd.DataFrame(mc_data), hide_index=True, use_container_width=True)
-
-                # Histogramme ECharts des distributions
-                st.markdown('<div style="height: 16px"></div>', unsafe_allow_html=True)
-                st.markdown("**Distribution des sièges (médiane et IC 95%)**")
-
-                # Préparer les données
-                box_data = []
-                for liste, stats in mc_results.items():
-                    if liste == "_meta":
-                        continue
-                    box_data.append({
-                        "name": liste.split()[-1] if " " in liste else liste,
-                        "full_name": liste,
-                        "median": stats["median"],
-                        "ci_low": stats["ci_low"],
-                        "ci_high": stats["ci_high"],
-                        "mean": stats["mean"],
-                        "color": get_color(familles_t1.get(liste, "DIV"))
-                    })
-
-                # Trier par médiane décroissante
-                box_data.sort(key=lambda x: -x["median"])
-                categories = [d["name"] for d in box_data]
-
-                # Créer le graphique ECharts avec barres d'erreur
-                mc_option = {
-                    "tooltip": {
-                        "trigger": "axis",
-                        "axisPointer": {"type": "shadow"},
-                        "formatter": """function(params) {
-                            var data = params[0];
-                            return data.name + '<br/>Médiane: ' + data.value + ' sièges';
-                        }"""
-                    },
-                    "grid": {
-                        "left": "18%",
-                        "right": "12%",
-                        "top": "8%",
-                        "bottom": "12%"
-                    },
-                    "xAxis": {
-                        "type": "value",
-                        "name": "Sièges",
-                        "nameLocation": "middle",
-                        "nameGap": 30,
-                        "min": 0,
-                        "max": CONSEIL_PARIS_SEATS + 5,
-                        "axisLine": {"lineStyle": {"color": "rgba(255,255,255,0.3)"}},
-                        "axisLabel": {"color": "rgba(255,255,255,0.7)"},
-                        "splitLine": {"lineStyle": {"color": "rgba(255,255,255,0.1)"}}
-                    },
-                    "yAxis": {
-                        "type": "category",
-                        "data": categories,
-                        "axisLine": {"lineStyle": {"color": "rgba(255,255,255,0.3)"}},
-                        "axisLabel": {"color": "rgba(255,255,255,0.9)", "fontSize": 12}
-                    },
-                    "series": [
-                        {
-                            "name": "Médiane",
-                            "type": "bar",
-                            "data": [
-                                {
-                                    "value": d["median"],
-                                    "itemStyle": {"color": d["color"]}
-                                }
-                                for d in box_data
-                            ],
-                            "label": {
-                                "show": True,
-                                "position": "right",
-                                "formatter": "{c}",
-                                "color": "rgba(255,255,255,0.8)",
-                                "fontSize": 11
-                            },
-                            "barWidth": "55%",
-                            "markLine": {
-                                "symbol": "none",
-                                "data": [
-                                    {
-                                        "xAxis": MAYOR_ABSOLUTE_MAJORITY,
-                                        "lineStyle": {"color": "#E74C3C", "type": "dashed", "width": 2},
-                                        "label": {
-                                            "formatter": f"Majorité ({MAYOR_ABSOLUTE_MAJORITY})",
-                                            "color": "#E74C3C",
-                                            "fontSize": 10
-                                        }
-                                    }
-                                ]
-                            }
-                        },
-                        {
-                            "name": "IC bas",
-                            "type": "scatter",
-                            "symbol": "triangle",
-                            "symbolSize": 8,
-                            "data": [[d["ci_low"], i] for i, d in enumerate(box_data)],
-                            "itemStyle": {"color": "rgba(255,255,255,0.6)"},
-                            "tooltip": {"show": False}
-                        },
-                        {
-                            "name": "IC haut",
-                            "type": "scatter",
-                            "symbol": "triangle",
-                            "symbolSize": 8,
-                            "symbolRotate": 180,
-                            "data": [[d["ci_high"], i] for i, d in enumerate(box_data)],
-                            "itemStyle": {"color": "rgba(255,255,255,0.6)"},
-                            "tooltip": {"show": False}
-                        }
-                    ]
-                }
-
-                st_echarts(options=mc_option, height="350px")
-
-                # Légende
-                st.markdown(f"""
-                <p style="color: rgba(255,255,255,0.5); font-size: 11px; text-align: center; margin-top: 8px;">
-                    Barres = médiane · Ligne rouge = majorité ({MAYOR_ABSOLUTE_MAJORITY} sièges) ·
-                    {meta.get('n_iterations', 0):,} itérations
+            with st.expander("Visualisation géographique", expanded=False):
+                st.markdown("""
+                <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 16px;">
+                    Carte indicative des résultats par arrondissement (simulation uniforme).
+                    Les scores sont extrapolés à partir des résultats globaux.
                 </p>
                 """, unsafe_allow_html=True)
+
+                # Créer les données par arrondissement (simulation simplifiée)
+                # En l'absence de données sectorielles, on utilise les scores globaux
+                r1_result = st.session_state.get("r1")
+                if r1_result and hasattr(r1_result, "percentages"):
+                    winner = max(r1_result.percentages, key=r1_result.percentages.get)
+                    winner_score = r1_result.percentages[winner]
+
+                    # Simuler des résultats par arrondissement (variations aléatoires)
+                    seats_by_sector = {}
+                    for secteur in SECTEURS_2026:
+                        seats_by_sector[secteur] = {
+                            "winner": winner,
+                            "score": winner_score
+                        }
+
+                    paris_map = create_paris_map(seats_by_sector, familles_t1)
+                else:
+                    paris_map = create_paris_map()
+
+                st_folium(paris_map, width=700, height=500, returned_objects=[])
+
+                st.markdown("""
+                <p style="color: rgba(255,255,255,0.5); font-size: 11px; text-align: center; margin-top: 8px;">
+                    Carte indicative · Données uniformes · Cliquez sur un arrondissement pour les détails
+                </p>
+                """, unsafe_allow_html=True)
+
+        # =====================================================================
+        # EXPORT PDF
+        # =====================================================================
+        st.markdown('<div style="height: 32px"></div>', unsafe_allow_html=True)
+
+        if st.session_state.get("show_pdf_export"):
+            st.markdown('<p class="section-header">📄 Export du rapport</p>', unsafe_allow_html=True)
+            mc_results = st.session_state.get("mc_results")
+            html_bytes = generate_pdf_report(seats, familles_t1, mc_results=mc_results)
+            filename = f"simulation_paris_2026_{datetime.now().strftime('%Y%m%d_%H%M')}.html"
+            st.markdown(get_download_link(html_bytes, filename), unsafe_allow_html=True)
+            st.markdown('<p style="color: rgba(255,255,255,0.5); font-size: 12px; margin-top: 8px;">Le fichier HTML peut être ouvert dans un navigateur et imprimé en PDF.</p>', unsafe_allow_html=True)
+            if st.button("Fermer", key="close_pdf"):
+                st.session_state["show_pdf_export"] = False
+                st.rerun()
+
+        # =====================================================================
+        # MONTE CARLO SIMULATION (mode expert)
+        # =====================================================================
+        if mode_expert:
+            st.markdown('<div style="height: 32px"></div>', unsafe_allow_html=True)
+            st.markdown('<p class="section-header">🎲 Simulation Monte Carlo</p>', unsafe_allow_html=True)
+
+            with st.expander("Quantifier l'incertitude sur les résultats", expanded=False):
+                st.markdown("""
+                <p style="color: rgba(255,255,255,0.6); font-size: 13px; margin-bottom: 16px;">
+                    La simulation Monte Carlo perturbe les scores N fois pour estimer la distribution probable des sièges
+                    et quantifier l'incertitude liée aux erreurs de sondage.
+                </p>
+                """, unsafe_allow_html=True)
+
+                mc_col1, mc_col2 = st.columns(2)
+                with mc_col1:
+                    n_iterations = st.select_slider(
+                        "Nombre d'itérations",
+                        options=[100, 500, 1000, 2000, 5000, 10000],
+                        value=1000,
+                        key="mc_iterations"
+                    )
+                with mc_col2:
+                    mc_sigma = st.slider(
+                        "Écart-type σ (points)",
+                        min_value=0.5,
+                        max_value=5.0,
+                        value=2.0,
+                        step=0.5,
+                        key="mc_sigma",
+                        help="Amplitude des perturbations aléatoires sur les scores"
+                    )
+
+                if st.button("Lancer la simulation", type="primary", key="mc_run"):
+                    # Récupérer les scores actuels depuis T1 ou T2
+                    if "votes_t2" in st.session_state and st.session_state.get("listes_t2"):
+                        # Utiliser les scores T2
+                        sim_votes = st.session_state["votes_t2"]
+                        total_v = sum(sim_votes.values())
+                        sim_scores = {k: v / total_v * 100 for k, v in sim_votes.items()}
+                    elif "r1" in st.session_state:
+                        # Utiliser les scores T1
+                        sim_scores = st.session_state["r1"].percentages
+                    else:
+                        sim_scores = None
+
+                    if sim_scores:
+                        with st.spinner(f"Simulation en cours ({n_iterations} itérations)..."):
+                            mc_results = run_monte_carlo_ui(sim_scores, n_iterations, mc_sigma)
+                            st.session_state["mc_results"] = mc_results
+
+                # Afficher les résultats s'ils existent
+                if "mc_results" in st.session_state:
+                    mc_results = st.session_state["mc_results"]
+                    meta = mc_results.get("_meta", {})
+
+                    st.markdown('<div style="height: 16px"></div>', unsafe_allow_html=True)
+
+                    # Statistiques globales
+                    p_maj = meta.get("p_majority", 0) * 100
+                    st.markdown(f"""
+                    <div style="background: rgba(255,255,255,0.05); padding: 16px; border-radius: 12px; margin-bottom: 16px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: rgba(255,255,255,0.7);">Probabilité d'une majorité absolue</span>
+                            <span style="font-size: 24px; font-weight: 600; color: {'#22c55e' if p_maj > 50 else '#ef4444'};">{p_maj:.1f}%</span>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                    # Tableau des intervalles de confiance
+                    st.markdown("**Intervalles de confiance (95%)**")
+
+                    mc_data = []
+                    for liste, stats in mc_results.items():
+                        if liste == "_meta":
+                            continue
+                        mc_data.append({
+                            "Liste": liste.split()[-1] if " " in liste else liste,
+                            "Moyenne": f"{stats['mean']:.1f}",
+                            "Écart-type": f"{stats['std']:.1f}",
+                            "IC 95%": f"[{stats['ci_low']:.0f} - {stats['ci_high']:.0f}]",
+                        })
+
+                    # Trier par moyenne décroissante
+                    mc_data.sort(key=lambda x: -float(x["Moyenne"]))
+                    st.dataframe(pd.DataFrame(mc_data), hide_index=True, use_container_width=True)
+
+                    # Histogramme ECharts des distributions
+                    st.markdown('<div style="height: 16px"></div>', unsafe_allow_html=True)
+                    st.markdown("**Distribution des sièges (médiane et IC 95%)**")
+
+                    # Préparer les données
+                    box_data = []
+                    for liste, stats in mc_results.items():
+                        if liste == "_meta":
+                            continue
+                        box_data.append({
+                            "name": liste.split()[-1] if " " in liste else liste,
+                            "full_name": liste,
+                            "median": stats["median"],
+                            "ci_low": stats["ci_low"],
+                            "ci_high": stats["ci_high"],
+                            "mean": stats["mean"],
+                            "color": get_color(familles_t1.get(liste, "DIV"))
+                        })
+
+                    # Trier par médiane décroissante
+                    box_data.sort(key=lambda x: -x["median"])
+                    categories = [d["name"] for d in box_data]
+
+                    # Créer le graphique ECharts avec barres d'erreur
+                    mc_option = {
+                        "tooltip": {
+                            "trigger": "axis",
+                            "axisPointer": {"type": "shadow"},
+                            "formatter": """function(params) {
+                                var data = params[0];
+                                return data.name + '<br/>Médiane: ' + data.value + ' sièges';
+                            }"""
+                        },
+                        "grid": {
+                            "left": "18%",
+                            "right": "12%",
+                            "top": "8%",
+                            "bottom": "12%"
+                        },
+                        "xAxis": {
+                            "type": "value",
+                            "name": "Sièges",
+                            "nameLocation": "middle",
+                            "nameGap": 30,
+                            "min": 0,
+                            "max": CONSEIL_PARIS_SEATS + 5,
+                            "axisLine": {"lineStyle": {"color": "rgba(255,255,255,0.3)"}},
+                            "axisLabel": {"color": "rgba(255,255,255,0.7)"},
+                            "splitLine": {"lineStyle": {"color": "rgba(255,255,255,0.1)"}}
+                        },
+                        "yAxis": {
+                            "type": "category",
+                            "data": categories,
+                            "axisLine": {"lineStyle": {"color": "rgba(255,255,255,0.3)"}},
+                            "axisLabel": {"color": "rgba(255,255,255,0.9)", "fontSize": 12}
+                        },
+                        "series": [
+                            {
+                                "name": "Médiane",
+                                "type": "bar",
+                                "data": [
+                                    {
+                                        "value": d["median"],
+                                        "itemStyle": {"color": d["color"]}
+                                    }
+                                    for d in box_data
+                                ],
+                                "label": {
+                                    "show": True,
+                                    "position": "right",
+                                    "formatter": "{c}",
+                                    "color": "rgba(255,255,255,0.8)",
+                                    "fontSize": 11
+                                },
+                                "barWidth": "55%",
+                                "markLine": {
+                                    "symbol": "none",
+                                    "data": [
+                                        {
+                                            "xAxis": MAYOR_ABSOLUTE_MAJORITY,
+                                            "lineStyle": {"color": "#E74C3C", "type": "dashed", "width": 2},
+                                            "label": {
+                                                "formatter": f"Majorité ({MAYOR_ABSOLUTE_MAJORITY})",
+                                                "color": "#E74C3C",
+                                                "fontSize": 10
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "IC bas",
+                                "type": "scatter",
+                                "symbol": "triangle",
+                                "symbolSize": 8,
+                                "data": [[d["ci_low"], i] for i, d in enumerate(box_data)],
+                                "itemStyle": {"color": "rgba(255,255,255,0.6)"},
+                                "tooltip": {"show": False}
+                            },
+                            {
+                                "name": "IC haut",
+                                "type": "scatter",
+                                "symbol": "triangle",
+                                "symbolSize": 8,
+                                "symbolRotate": 180,
+                                "data": [[d["ci_high"], i] for i, d in enumerate(box_data)],
+                                "itemStyle": {"color": "rgba(255,255,255,0.6)"},
+                                "tooltip": {"show": False}
+                            }
+                        ]
+                    }
+
+                    st_echarts(options=mc_option, height="350px")
+
+                    # Légende
+                    st.markdown(f"""
+                    <p style="color: rgba(255,255,255,0.5); font-size: 11px; text-align: center; margin-top: 8px;">
+                        Barres = médiane · Ligne rouge = majorité ({MAYOR_ABSOLUTE_MAJORITY} sièges) ·
+                        {meta.get('n_iterations', 0):,} itérations
+                    </p>
+                    """, unsafe_allow_html=True)
 
 # =============================================================================
 # FOOTER

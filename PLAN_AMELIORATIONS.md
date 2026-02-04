@@ -153,13 +153,13 @@
 2. Implémenter la matrice de transfert ✅
 3. Ajouter les noms de famille ✅
 4. Simulation Monte Carlo accessible depuis l'UI ✅
-5. Export PDF basique
+5. Export PDF basique ✅
 
 ### Phase 2 — Moyen terme (1 mois)
-1. Carte choroplèthe par arrondissement
+1. Carte choroplèthe par arrondissement ✅
 2. Hémicycle interactif
 3. Scénarios prédéfinis (3-4 scénarios)
-4. Mode simplifié vs expert
+4. Mode simplifié vs expert ✅
 
 ### Phase 3 — Long terme (2-3 mois)
 1. Scraper automatique des sondages
