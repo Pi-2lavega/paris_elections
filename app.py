@@ -10,8 +10,8 @@ warnings.filterwarnings('ignore')
 import streamlit as st
 import pandas as pd
 import numpy as np
+import altair as alt
 import plotly.graph_objects as go
-import plotly.express as px
 
 from paris_elections.engine.round1 import run_round1
 from paris_elections.engine.round2 import run_round2
@@ -443,7 +443,7 @@ with tab1:
             """, unsafe_allow_html=True)
 
     # Graphique d'évolution des sondages
-    with st.expander("📊 Évolution des sondages", expanded=False):
+    with st.expander("📊 Évolution des sondages (nov. 2025 → fév. 2026)", expanded=False):
         # Préparer les données
         evolution_data = []
         for sondage_name, sondage_info in SONDAGES.items():
@@ -451,9 +451,10 @@ with tab1:
                 for liste in sondage_info["listes"]:
                     evolution_data.append({
                         "Date": sondage_info["date"],
-                        "Candidat": liste["nom"].split()[0],  # Prénom seulement
+                        "Candidat": liste["nom"],
                         "Score": liste["score"],
                         "Famille": liste["famille"],
+                        "Institut": sondage_info["institut"],
                     })
 
         if evolution_data:
@@ -461,63 +462,140 @@ with tab1:
             evo_df["Date"] = pd.to_datetime(evo_df["Date"])
             evo_df = evo_df.sort_values("Date")
 
-            # Graphique
-            fig_evo = go.Figure()
+            # Mapping couleurs par candidat
+            color_map = {row["Candidat"]: get_color(row["Famille"])
+                        for _, row in evo_df.drop_duplicates("Candidat").iterrows()}
 
-            for candidat in evo_df["Candidat"].unique():
-                df_cand = evo_df[evo_df["Candidat"] == candidat]
-                famille = df_cand["Famille"].iloc[0]
-                color = get_color(famille)
+            # Trier les candidats par dernier score
+            last_scores = evo_df.sort_values("Date").groupby("Candidat").last()["Score"].sort_values(ascending=False)
+            sorted_candidates = last_scores.index.tolist()
 
-                fig_evo.add_trace(go.Scatter(
-                    x=df_cand["Date"],
-                    y=df_cand["Score"],
-                    name=candidat,
-                    mode='lines+markers',
-                    line=dict(color=color, width=2),
-                    marker=dict(size=8),
-                    hovertemplate=f"{candidat}: %{{y}}%<extra></extra>"
-                ))
+            # Thème sombre pour Altair
+            alt.themes.enable('dark')
 
-            # Ligne de qualification 10%
-            fig_evo.add_hline(y=10, line_dash="dot", line_color="rgba(255,255,255,0.3)",
-                            annotation_text="Seuil qualification (10%)",
-                            annotation_position="bottom right",
-                            annotation_font_color="rgba(255,255,255,0.5)")
+            # Seuil de qualification (ligne horizontale)
+            threshold_line = alt.Chart(pd.DataFrame({'y': [10]})).mark_rule(
+                color='#ef4444',
+                strokeWidth=2,
+                strokeDash=[8, 4],
+                opacity=0.6
+            ).encode(y='y:Q')
 
-            fig_evo.update_layout(
-                height=350,
-                margin=dict(l=0, r=0, t=20, b=0),
-                xaxis=dict(
-                    showgrid=True,
-                    gridcolor='rgba(255,255,255,0.1)',
-                    tickfont=dict(color='rgba(255,255,255,0.7)'),
-                ),
-                yaxis=dict(
-                    title=dict(
-                        text="Intentions de vote (%)",
-                        font=dict(color='rgba(255,255,255,0.7)'),
-                    ),
-                    showgrid=True,
-                    gridcolor='rgba(255,255,255,0.1)',
-                    tickfont=dict(color='rgba(255,255,255,0.7)'),
-                    range=[0, 40],
-                ),
-                plot_bgcolor='rgba(0,0,0,0)',
-                paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(family='Inter', color='rgba(255,255,255,0.8)'),
-                legend=dict(
-                    orientation="h",
-                    yanchor="bottom",
-                    y=1.02,
-                    xanchor="center",
-                    x=0.5,
-                    font=dict(size=11),
-                ),
-                hovermode="x unified",
+            threshold_text = alt.Chart(pd.DataFrame({'y': [10], 'text': ['Seuil 10%']})).mark_text(
+                align='left',
+                dx=5,
+                dy=-8,
+                fontSize=11,
+                color='#ef4444',
+                opacity=0.7
+            ).encode(
+                y='y:Q',
+                text='text:N'
             )
 
-            st.plotly_chart(fig_evo, use_container_width=True)
+            # Lignes principales
+            lines = alt.Chart(evo_df).mark_line(
+                strokeWidth=3,
+                opacity=0.9
+            ).encode(
+                x=alt.X('Date:T',
+                    axis=alt.Axis(
+                        format='%d %b',
+                        labelAngle=-45,
+                        labelColor='#999',
+                        titleColor='#666',
+                        gridColor='#333',
+                        domainColor='#444',
+                        title=None
+                    )
+                ),
+                y=alt.Y('Score:Q',
+                    scale=alt.Scale(domain=[0, 40]),
+                    axis=alt.Axis(
+                        labelColor='#999',
+                        titleColor='#666',
+                        gridColor='#333',
+                        domainColor='#444',
+                        title='Intentions de vote (%)',
+                        format='.0f'
+                    )
+                ),
+                color=alt.Color('Candidat:N',
+                    scale=alt.Scale(
+                        domain=sorted_candidates,
+                        range=[color_map[c] for c in sorted_candidates]
+                    ),
+                    legend=alt.Legend(
+                        title=None,
+                        orient='top',
+                        columns=3,
+                        labelColor='#ccc',
+                        labelFontSize=11
+                    )
+                ),
+                strokeDash=alt.StrokeDash('Candidat:N',
+                    scale=alt.Scale(
+                        domain=sorted_candidates,
+                        range=[[1,0], [1,0], [1,0], [4,4], [4,4], [2,2], [2,2]]
+                    ),
+                    legend=None
+                )
+            )
+
+            # Points
+            points = alt.Chart(evo_df).mark_circle(
+                size=80,
+                opacity=0.9
+            ).encode(
+                x='Date:T',
+                y='Score:Q',
+                color=alt.Color('Candidat:N', legend=None,
+                    scale=alt.Scale(
+                        domain=sorted_candidates,
+                        range=[color_map[c] for c in sorted_candidates]
+                    )
+                ),
+                tooltip=[
+                    alt.Tooltip('Candidat:N', title='Candidat'),
+                    alt.Tooltip('Score:Q', title='Score', format='.1f'),
+                    alt.Tooltip('Date:T', title='Date', format='%d %B %Y'),
+                    alt.Tooltip('Institut:N', title='Institut')
+                ]
+            )
+
+            # Labels sur le dernier point
+            last_points = evo_df.sort_values('Date').groupby('Candidat').last().reset_index()
+
+            labels = alt.Chart(last_points).mark_text(
+                align='left',
+                dx=8,
+                fontSize=12,
+                fontWeight='bold'
+            ).encode(
+                x='Date:T',
+                y='Score:Q',
+                text=alt.Text('Score:Q', format='.0f'),
+                color=alt.Color('Candidat:N', legend=None,
+                    scale=alt.Scale(
+                        domain=sorted_candidates,
+                        range=[color_map[c] for c in sorted_candidates]
+                    )
+                )
+            )
+
+            # Combiner
+            chart = (threshold_line + threshold_text + lines + points + labels).properties(
+                height=380,
+            ).configure(
+                background='transparent'
+            ).configure_view(
+                strokeWidth=0
+            )
+
+            st.altair_chart(chart, use_container_width=True)
+
+            # Sources
+            st.caption("Sources : IFOP-Fiducial, ELABE, Cluster17")
 
     st.markdown('<div style="height: 24px"></div>', unsafe_allow_html=True)
 
