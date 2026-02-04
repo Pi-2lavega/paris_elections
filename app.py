@@ -915,30 +915,58 @@ with tab1:
             legend_names = [c.split()[-1] for c in sorted_candidates]  # Noms de famille
 
             option = {
-                "tooltip": {"trigger": "axis"},
+                "tooltip": {
+                    "trigger": "axis",
+                    "backgroundColor": "rgba(30, 30, 40, 0.95)",
+                    "borderColor": "rgba(255,255,255,0.1)",
+                    "textStyle": {"color": "#fff", "fontSize": 13},
+                },
                 "legend": {
                     "data": legend_names,
-                    "top": 0,
-                    "textStyle": {"color": "#ccc", "fontSize": 12},
+                    "top": 10,
+                    "left": "center",
+                    "textStyle": {"color": "#ccc", "fontSize": 13},
+                    "itemGap": 20,
+                    "itemWidth": 25,
+                    "itemHeight": 14,
                 },
-                "grid": {"left": 50, "right": 30, "top": 45, "bottom": 30},
+                "grid": {
+                    "left": 60,
+                    "right": 40,
+                    "top": 80,
+                    "bottom": 50,
+                    "containLabel": False
+                },
                 "xAxis": {
                     "type": "category",
                     "data": date_labels,
-                    "axisLabel": {"color": "#999"},
-                    "axisLine": {"lineStyle": {"color": "#444"}},
+                    "axisLabel": {
+                        "color": "#aaa",
+                        "fontSize": 12,
+                        "margin": 12
+                    },
+                    "axisLine": {"lineStyle": {"color": "#555"}},
+                    "axisTick": {"lineStyle": {"color": "#555"}},
                 },
                 "yAxis": {
                     "type": "value",
                     "min": 0,
                     "max": 40,
-                    "axisLabel": {"color": "#999", "formatter": "{value}%"},
-                    "splitLine": {"lineStyle": {"color": "#333"}},
+                    "interval": 5,
+                    "axisLabel": {
+                        "color": "#aaa",
+                        "fontSize": 12,
+                        "formatter": "{value}%"
+                    },
+                    "splitLine": {
+                        "lineStyle": {"color": "rgba(255,255,255,0.08)"}
+                    },
+                    "axisLine": {"show": False},
                 },
                 "series": series,
             }
 
-            st_echarts(options=option, height="350px")
+            st_echarts(options=option, height="450px")
 
             st.caption("━━ ≥10% · ┅┅ <10% · Sources : IFOP-Fiducial, ELABE, Cluster17")
 
