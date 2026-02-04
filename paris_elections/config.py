@@ -197,6 +197,126 @@ MAYOR_ABSOLUTE_MAJORITY = (CONSEIL_PARIS_SEATS // 2) + 1  # 82
 
 DEFAULT_TRANSFER_RATE = 0.85
 
+# =============================================================================
+# MATRICE DE TRANSFERT DE VOIX (T1 → T2)
+# =============================================================================
+# Basée sur les études post-électorales (IPSOS, IFOP) des législatives 2024
+# et municipales 2020. Les taux représentent la fraction des électeurs
+# d'une famille (ligne) qui reportent leur vote vers une autre (colonne).
+# Le complément à 100% = abstention différentielle.
+#
+# Format: TRANSFER_MATRIX[famille_source][famille_cible] = taux
+
+TRANSFER_MATRIX: Dict[str, Dict[str, float]] = {
+    # Extrême gauche
+    "EXG": {
+        "EXG": 0.90, "LFI": 0.85, "PCF": 0.80, "PS": 0.70, "EELV": 0.75,
+        "DVG": 0.65, "REN": 0.20, "MDM": 0.15, "UDI": 0.10, "LR": 0.10,
+        "DVD": 0.10, "RN": 0.05, "REC": 0.03, "EXD": 0.02, "DIV": 0.30,
+    },
+    # La France Insoumise
+    "LFI": {
+        "EXG": 0.70, "LFI": 0.90, "PCF": 0.75, "PS": 0.60, "EELV": 0.65,
+        "DVG": 0.50, "REN": 0.15, "MDM": 0.12, "UDI": 0.08, "LR": 0.08,
+        "DVD": 0.08, "RN": 0.08, "REC": 0.05, "EXD": 0.03, "DIV": 0.25,
+    },
+    # Parti Communiste
+    "PCF": {
+        "EXG": 0.65, "LFI": 0.70, "PCF": 0.90, "PS": 0.75, "EELV": 0.70,
+        "DVG": 0.60, "REN": 0.20, "MDM": 0.15, "UDI": 0.10, "LR": 0.10,
+        "DVD": 0.10, "RN": 0.05, "REC": 0.03, "EXD": 0.02, "DIV": 0.30,
+    },
+    # Parti Socialiste
+    "PS": {
+        "EXG": 0.45, "LFI": 0.55, "PCF": 0.60, "PS": 0.90, "EELV": 0.75,
+        "DVG": 0.70, "REN": 0.40, "MDM": 0.35, "UDI": 0.20, "LR": 0.15,
+        "DVD": 0.15, "RN": 0.05, "REC": 0.03, "EXD": 0.02, "DIV": 0.35,
+    },
+    # Europe Écologie Les Verts
+    "EELV": {
+        "EXG": 0.50, "LFI": 0.60, "PCF": 0.55, "PS": 0.70, "EELV": 0.90,
+        "DVG": 0.65, "REN": 0.35, "MDM": 0.30, "UDI": 0.15, "LR": 0.12,
+        "DVD": 0.12, "RN": 0.05, "REC": 0.03, "EXD": 0.02, "DIV": 0.35,
+    },
+    # Divers Gauche
+    "DVG": {
+        "EXG": 0.40, "LFI": 0.50, "PCF": 0.55, "PS": 0.70, "EELV": 0.65,
+        "DVG": 0.85, "REN": 0.40, "MDM": 0.35, "UDI": 0.25, "LR": 0.20,
+        "DVD": 0.20, "RN": 0.08, "REC": 0.05, "EXD": 0.03, "DIV": 0.40,
+    },
+    # Renaissance (Macronistes)
+    "REN": {
+        "EXG": 0.10, "LFI": 0.12, "PCF": 0.15, "PS": 0.35, "EELV": 0.30,
+        "DVG": 0.30, "REN": 0.90, "MDM": 0.85, "UDI": 0.70, "LR": 0.55,
+        "DVD": 0.50, "RN": 0.10, "REC": 0.08, "EXD": 0.05, "DIV": 0.40,
+    },
+    # MoDem
+    "MDM": {
+        "EXG": 0.08, "LFI": 0.10, "PCF": 0.12, "PS": 0.30, "EELV": 0.28,
+        "DVG": 0.28, "REN": 0.85, "MDM": 0.90, "UDI": 0.70, "LR": 0.55,
+        "DVD": 0.50, "RN": 0.10, "REC": 0.08, "EXD": 0.05, "DIV": 0.40,
+    },
+    # UDI
+    "UDI": {
+        "EXG": 0.05, "LFI": 0.05, "PCF": 0.08, "PS": 0.20, "EELV": 0.18,
+        "DVG": 0.18, "REN": 0.65, "MDM": 0.70, "UDI": 0.90, "LR": 0.75,
+        "DVD": 0.70, "RN": 0.15, "REC": 0.12, "EXD": 0.08, "DIV": 0.35,
+    },
+    # Les Républicains
+    "LR": {
+        "EXG": 0.03, "LFI": 0.05, "PCF": 0.05, "PS": 0.12, "EELV": 0.10,
+        "DVG": 0.12, "REN": 0.45, "MDM": 0.50, "UDI": 0.70, "LR": 0.90,
+        "DVD": 0.80, "RN": 0.30, "REC": 0.25, "EXD": 0.15, "DIV": 0.30,
+    },
+    # Divers Droite
+    "DVD": {
+        "EXG": 0.03, "LFI": 0.05, "PCF": 0.05, "PS": 0.15, "EELV": 0.12,
+        "DVG": 0.15, "REN": 0.50, "MDM": 0.50, "UDI": 0.65, "LR": 0.80,
+        "DVD": 0.85, "RN": 0.28, "REC": 0.22, "EXD": 0.12, "DIV": 0.35,
+    },
+    # Rassemblement National
+    "RN": {
+        "EXG": 0.02, "LFI": 0.08, "PCF": 0.03, "PS": 0.05, "EELV": 0.03,
+        "DVG": 0.05, "REN": 0.12, "MDM": 0.10, "UDI": 0.12, "LR": 0.25,
+        "DVD": 0.22, "RN": 0.92, "REC": 0.75, "EXD": 0.70, "DIV": 0.15,
+    },
+    # Reconquête
+    "REC": {
+        "EXG": 0.01, "LFI": 0.03, "PCF": 0.02, "PS": 0.03, "EELV": 0.02,
+        "DVG": 0.03, "REN": 0.15, "MDM": 0.12, "UDI": 0.18, "LR": 0.35,
+        "DVD": 0.30, "RN": 0.70, "REC": 0.92, "EXD": 0.75, "DIV": 0.12,
+    },
+    # Extrême Droite
+    "EXD": {
+        "EXG": 0.01, "LFI": 0.02, "PCF": 0.01, "PS": 0.02, "EELV": 0.02,
+        "DVG": 0.02, "REN": 0.08, "MDM": 0.06, "UDI": 0.10, "LR": 0.20,
+        "DVD": 0.18, "RN": 0.75, "REC": 0.80, "EXD": 0.90, "DIV": 0.10,
+    },
+    # Divers
+    "DIV": {
+        "EXG": 0.15, "LFI": 0.20, "PCF": 0.18, "PS": 0.30, "EELV": 0.28,
+        "DVG": 0.30, "REN": 0.35, "MDM": 0.32, "UDI": 0.30, "LR": 0.30,
+        "DVD": 0.28, "RN": 0.15, "REC": 0.12, "EXD": 0.08, "DIV": 0.50,
+    },
+}
+
+
+def get_transfer_rate(source_family: str, target_family: str) -> float:
+    """Retourne le taux de transfert entre deux familles politiques.
+
+    Args:
+        source_family: Famille politique de la liste qui se retire/fusionne.
+        target_family: Famille politique de la liste bénéficiaire.
+
+    Returns:
+        Taux de transfert (0.0 à 1.0).
+    """
+    if source_family == target_family:
+        return 0.90  # Même famille = fort report
+
+    source_matrix = TRANSFER_MATRIX.get(source_family, TRANSFER_MATRIX.get("DIV", {}))
+    return source_matrix.get(target_family, DEFAULT_TRANSFER_RATE * 0.5)
+
 
 # ---------------------------------------------------------------------------
 # Monte Carlo par défaut
