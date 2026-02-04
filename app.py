@@ -494,11 +494,13 @@ with tab1:
                     tickfont=dict(color='rgba(255,255,255,0.7)'),
                 ),
                 yaxis=dict(
-                    title="Intentions de vote (%)",
+                    title=dict(
+                        text="Intentions de vote (%)",
+                        font=dict(color='rgba(255,255,255,0.7)'),
+                    ),
                     showgrid=True,
                     gridcolor='rgba(255,255,255,0.1)',
                     tickfont=dict(color='rgba(255,255,255,0.7)'),
-                    titlefont=dict(color='rgba(255,255,255,0.7)'),
                     range=[0, 40],
                 ),
                 plot_bgcolor='rgba(0,0,0,0)',
