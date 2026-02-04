@@ -866,6 +866,10 @@ with tab1:
             }
 
             series = []
+            active_candidates = []  # Candidats présents dans les sondages récents
+
+            # Dernière date de sondage
+            last_date = max(dates)
 
             for idx, candidat in enumerate(sorted_candidates):
                 df_cand = evo_df[evo_df["Candidat"] == candidat]
@@ -874,6 +878,11 @@ with tab1:
                 symbol = style["symbol"]
 
                 score_by_date = dict(zip(df_cand["Date"], df_cand["Score"]))
+
+                # Vérifier si le candidat est présent dans le dernier sondage
+                if last_date not in score_by_date:
+                    continue  # Ignorer les candidats qui ne sont plus présents
+
                 data = []
                 for d in dates:
                     score = score_by_date.get(d)
@@ -889,6 +898,7 @@ with tab1:
                 line_width = 2 if is_below else 3
                 symbol_size = 8 if is_below else 12
 
+                active_candidates.append(candidat)
                 series.append({
                     "name": candidat.split()[-1],  # Nom de famille
                     "type": "line",
@@ -900,19 +910,42 @@ with tab1:
                     "itemStyle": {"color": color},
                     "emphasis": {"focus": "series"},
                     "connectNulls": True,
+                    "z": 10,  # Au-dessus du seuil
                 })
 
-            # Seuil 10%
+            # Seuil 10% - plus visible avec zone colorée
             series.append({
-                "name": "Seuil",
+                "name": "Seuil 10%",
                 "type": "line",
                 "data": [10] * len(dates),
-                "lineStyle": {"type": "dashed", "color": "#fa5252", "width": 2},
+                "lineStyle": {
+                    "type": [8, 4],  # Tirets personnalisés
+                    "color": "#ff6b6b",
+                    "width": 2,
+                    "opacity": 0.8
+                },
                 "symbol": "none",
-                "itemStyle": {"color": "#fa5252"},
+                "itemStyle": {"color": "#ff6b6b"},
+                "z": 1,  # En dessous des courbes
+                "markLine": {
+                    "silent": True,
+                    "symbol": "none",
+                    "label": {
+                        "show": True,
+                        "position": "end",
+                        "formatter": "Seuil T2",
+                        "color": "#ff6b6b",
+                        "fontSize": 11,
+                        "fontWeight": "bold"
+                    }
+                },
+                "areaStyle": {
+                    "color": "rgba(255, 107, 107, 0.08)",
+                    "origin": "start"
+                }
             })
 
-            legend_names = [c.split()[-1] for c in sorted_candidates]  # Noms de famille
+            legend_names = [c.split()[-1] for c in active_candidates]  # Noms de famille (candidats actifs)
 
             option = {
                 "tooltip": {
@@ -922,11 +955,11 @@ with tab1:
                     "textStyle": {"color": "#fff", "fontSize": 13},
                 },
                 "legend": {
-                    "data": legend_names,
+                    "data": legend_names + ["Seuil 10%"],
                     "top": 10,
                     "left": "center",
                     "textStyle": {"color": "#ccc", "fontSize": 13},
-                    "itemGap": 20,
+                    "itemGap": 18,
                     "itemWidth": 25,
                     "itemHeight": 14,
                 },
