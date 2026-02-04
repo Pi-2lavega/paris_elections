@@ -280,211 +280,248 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Custom CSS for modern look (dark mode compatible)
+# Custom CSS - Fira.money inspired dark theme
 st.markdown("""
 <style>
     /* Import font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
-    /* CSS Variables for theming */
+    /* CSS Variables - Fira.money palette */
     :root {
-        --text-primary: rgba(255, 255, 255, 0.95);
-        --text-secondary: rgba(255, 255, 255, 0.6);
-        --bg-card: rgba(255, 255, 255, 0.05);
-        --bg-card-hover: rgba(255, 255, 255, 0.08);
-        --border-color: rgba(255, 255, 255, 0.1);
-        --accent: #6366f1;
-        --accent-light: #818cf8;
+        --bg-base: #0a0a0a;
+        --bg-card: #0f0f0f;
+        --bg-elevated: #141414;
+        --border-subtle: #1a1a1a;
+        --border-muted: #2a2a2a;
+        --text-primary: #ffffff;
+        --text-secondary: #9ca3af;
+        --text-muted: #6b7280;
+        --accent-orange: #f97316;
+        --accent-green: #22c55e;
+        --accent-blue: #3b82f6;
+        --accent-red: #ef4444;
     }
 
     /* Global */
     .stApp {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', -apple-system, system-ui, sans-serif;
+        background: var(--bg-base) !important;
     }
 
     /* Hide Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    #MainMenu, footer, header {visibility: hidden;}
 
-    /* Tabs styling */
+    /* Main container */
+    .main .block-container {
+        max-width: 1200px;
+        padding: 2rem 1rem;
+    }
+
+    /* Tabs styling - Fira style */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(255, 255, 255, 0.05);
-        padding: 8px;
+        gap: 4px;
+        background: var(--bg-card);
+        padding: 6px;
         border-radius: 12px;
+        border: 1px solid var(--border-subtle);
     }
 
     .stTabs [data-baseweb="tab"] {
         border-radius: 8px;
-        padding: 12px 24px;
+        padding: 10px 20px;
         font-weight: 500;
-        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+        color: var(--text-muted);
+        background: transparent;
     }
 
     .stTabs [aria-selected="true"] {
-        background-color: var(--accent);
-        color: white !important;
+        background: var(--bg-elevated) !important;
+        color: var(--text-primary) !important;
+        border: 1px solid var(--border-muted);
     }
 
-    /* Cards */
-    .metric-card {
-        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-        padding: 24px;
-        border-radius: 16px;
-        color: white;
-        text-align: center;
+    /* Cards - Fira style */
+    .fira-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-subtle);
+        border-radius: 12px;
+        padding: 20px;
     }
 
-    .metric-card h3 {
-        font-size: 14px;
-        font-weight: 500;
-        opacity: 0.9;
-        margin-bottom: 8px;
+    .fira-card-inner {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-muted);
+        border-radius: 8px;
+        padding: 16px;
     }
 
-    .metric-card h1 {
-        font-size: 36px;
-        font-weight: 700;
-        margin: 0;
-    }
-
-    /* Section headers */
+    /* Section headers - Fira style */
     .section-header {
-        font-size: 13px;
+        font-size: 11px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        color: rgba(255, 255, 255, 0.5);
+        letter-spacing: 1.5px;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+    }
+
+    .section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--text-primary);
         margin-bottom: 16px;
-        padding-bottom: 8px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    /* Candidate row */
-    .candidate-row {
-        display: flex;
-        align-items: center;
-        padding: 12px 16px;
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 12px;
-        margin-bottom: 8px;
-    }
-
-    .candidate-dot {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 12px;
+    .section-title span {
+        color: var(--accent-orange);
     }
 
     /* Status badges */
     .badge {
         display: inline-block;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 12px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
         font-weight: 600;
     }
 
-    .badge-success { background: rgba(34, 197, 94, 0.2); color: #4ade80; }
-    .badge-warning { background: rgba(234, 179, 8, 0.2); color: #facc15; }
-    .badge-danger { background: rgba(239, 68, 68, 0.2); color: #f87171; }
-    .badge-info { background: rgba(59, 130, 246, 0.2); color: #60a5fa; }
+    .badge-success { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+    .badge-warning { background: rgba(234, 179, 8, 0.15); color: #facc15; }
+    .badge-danger { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+    .badge-info { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+    .badge-orange { background: rgba(249, 115, 22, 0.15); color: #fb923c; }
 
-    /* Progress bar */
-    .progress-container {
-        background: rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        height: 8px;
-        overflow: hidden;
-    }
-
-    .progress-bar {
-        height: 100%;
-        border-radius: 8px;
-        transition: width 0.3s ease;
-    }
-
-    /* Button styling */
+    /* Button styling - Fira style */
     .stButton > button {
-        border-radius: 12px;
-        padding: 12px 32px;
-        font-weight: 600;
-        border: none;
-        transition: all 0.2s ease;
+        background: var(--bg-elevated) !important;
+        border: 1px solid var(--border-muted) !important;
+        border-radius: 8px !important;
+        padding: 10px 20px !important;
+        font-weight: 500 !important;
+        color: var(--text-primary) !important;
+        transition: all 0.15s ease !important;
     }
 
     .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+        border-color: var(--accent-orange) !important;
+        background: var(--bg-elevated) !important;
     }
 
-    /* Input styling */
+    .stButton > button[kind="primary"] {
+        background: var(--accent-orange) !important;
+        border-color: var(--accent-orange) !important;
+    }
+
+    .stButton > button[kind="primary"]:hover {
+        opacity: 0.9;
+    }
+
+    /* Input styling - Fira style */
     .stTextInput > div > div > input,
-    .stNumberInput > div > div > input,
+    .stNumberInput > div > div > input {
+        background: var(--bg-elevated) !important;
+        border: 2px solid var(--border-muted) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+        font-weight: 600 !important;
+    }
+
+    .stTextInput > div > div > input:focus,
+    .stNumberInput > div > div > input:focus {
+        border-color: var(--accent-orange) !important;
+        box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2) !important;
+    }
+
     .stSelectbox > div > div {
-        border-radius: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        background: rgba(255, 255, 255, 0.05) !important;
+        background: var(--bg-elevated) !important;
+        border: 1px solid var(--border-muted) !important;
+        border-radius: 8px !important;
     }
 
-    /* Slider */
-    .stSlider > div > div > div {
-        background: var(--accent);
+    /* Slider - Fira style */
+    .stSlider > div > div > div > div {
+        background: var(--accent-orange) !important;
     }
 
-    /* Divider */
-    .divider {
-        height: 1px;
-        background: rgba(255, 255, 255, 0.1);
-        margin: 32px 0;
+    /* Expander - Fira style */
+    .streamlit-expanderHeader {
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-radius: 8px !important;
+        color: var(--text-secondary) !important;
     }
 
-    /* Info box dark mode */
-    .info-box {
-        background: rgba(255, 255, 255, 0.05);
-        border-left: 4px solid var(--accent);
-        padding: 16px 20px;
-        border-radius: 0 12px 12px 0;
-        margin-bottom: 24px;
-    }
-
-    .info-box-label {
-        font-weight: 600;
-        color: rgba(255, 255, 255, 0.9);
-    }
-
-    .info-box-value {
-        color: rgba(255, 255, 255, 0.6);
+    .streamlit-expanderContent {
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border-subtle) !important;
+        border-top: none !important;
+        border-radius: 0 0 8px 8px !important;
     }
 
     /* Coalition cards */
     .coalition-success {
-        background: rgba(34, 197, 94, 0.15);
-        border: 1px solid rgba(34, 197, 94, 0.3);
-        padding: 10px 14px;
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.25);
+        padding: 12px 16px;
         border-radius: 8px;
         margin-bottom: 8px;
         color: #4ade80;
+        font-weight: 500;
     }
 
-    /* Results analysis items */
+    /* Analysis rows */
     .analysis-row {
         display: flex;
         justify-content: space-between;
         padding: 12px 0;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        color: rgba(255, 255, 255, 0.9);
+        border-bottom: 1px solid var(--border-subtle);
+        color: var(--text-secondary);
     }
 
     .analysis-value {
         font-weight: 600;
+        color: var(--text-primary);
     }
 
     .analysis-pct {
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--text-muted);
         font-weight: 400;
+    }
+
+    /* Metric display - Fira style */
+    .metric-display {
+        text-align: center;
+    }
+
+    .metric-label {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--text-muted);
+        margin-bottom: 4px;
+    }
+
+    .metric-value {
+        font-size: 28px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .metric-value.orange { color: var(--accent-orange); }
+    .metric-value.green { color: var(--accent-green); }
+    .metric-value.blue { color: var(--accent-blue); }
+
+    /* Data table styling */
+    .stDataFrame {
+        background: var(--bg-card) !important;
+        border-radius: 8px !important;
+    }
+
+    /* Toggle styling */
+    .stCheckbox label span {
+        color: var(--text-secondary) !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -640,32 +677,44 @@ def create_paris_map(seats_by_sector: dict = None, familles: dict = None) -> fol
 
 
 # =============================================================================
-# HEADER
+# HEADER - Fira.money style
 # =============================================================================
+
+st.markdown("""
+<div style="background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+        <div>
+            <h1 style="font-size: 24px; font-weight: 700; color: white; margin: 0;">
+                Municipales Paris <span style="color: #f97316;">2026</span>
+            </h1>
+            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">
+                Simulateur électoral | Conseil de Paris | 163 sièges
+            </p>
+        </div>
+        <div style="display: flex; align-items: center; gap: 24px;">
+            <div style="text-align: right;">
+                <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Prime majoritaire</p>
+                <p style="color: #f97316; font-size: 20px; font-weight: 700; margin: 0;">25%</p>
+            </div>
+            <div style="width: 1px; height: 40px; background: #2a2a2a;"></div>
+            <div style="text-align: right;">
+                <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Majorité absolue</p>
+                <p style="color: #22c55e; font-size: 20px; font-weight: 700; margin: 0;">82</p>
+            </div>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col1:
-    st.markdown('<div style="height: 45px"></div>', unsafe_allow_html=True)
     mode_expert = st.toggle("Mode expert", value=False, key="mode_expert")
 
-with col2:
-    st.markdown("""
-    <div style="text-align: center; padding: 40px 0 20px 0;">
-        <h1 style="font-size: 42px; font-weight: 700; margin-bottom: 8px; color: rgba(255,255,255,0.95);">
-            Municipales Paris 2026
-        </h1>
-        <p style="font-size: 16px; color: rgba(255,255,255,0.5); font-weight: 400;">
-            Simulateur électoral · Conseil de Paris · 163 sièges
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
 with col3:
-    st.markdown('<div style="height: 45px"></div>', unsafe_allow_html=True)
     # Export PDF button (visible only when results exist)
     if "r1" in st.session_state or "final_seats" in st.session_state:
-        if st.button("📄 Export PDF", key="export_pdf_btn"):
+        if st.button("📄 Export", key="export_pdf_btn"):
             st.session_state["show_pdf_export"] = True
 
 # =============================================================================
