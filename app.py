@@ -892,116 +892,125 @@ with tab1:
                 scores_list = [s for s in data if s != "-"]
                 last_score = scores_list[-1] if scores_list else 0
 
-                # Pointillé si sous 10%
+                # Style selon position par rapport au seuil
                 is_below = last_score < 10
-                line_type = "dashed" if is_below else "solid"
-                line_width = 2 if is_below else 3
-                symbol_size = 8 if is_below else 12
+                line_width = 2 if is_below else 2.5
+                opacity = 0.5 if is_below else 1.0
 
                 active_candidates.append(candidat)
                 series.append({
-                    "name": candidat.split()[-1],  # Nom de famille
+                    "name": candidat.split()[-1],
                     "type": "line",
                     "data": data,
-                    "smooth": True,
-                    "symbol": symbol,
-                    "symbolSize": symbol_size,
-                    "lineStyle": {"width": line_width, "color": color, "type": line_type},
-                    "itemStyle": {"color": color},
-                    "emphasis": {"focus": "series"},
+                    "smooth": 0.3,
+                    "symbol": "circle",
+                    "symbolSize": 6,
+                    "showSymbol": True,
+                    "lineStyle": {
+                        "width": line_width,
+                        "color": color,
+                        "opacity": opacity,
+                    },
+                    "itemStyle": {
+                        "color": color,
+                        "borderColor": "#0a0a0a",
+                        "borderWidth": 2,
+                    },
+                    "emphasis": {
+                        "focus": "series",
+                        "lineStyle": {"width": 3},
+                        "itemStyle": {"borderWidth": 0},
+                    },
                     "connectNulls": True,
-                    "z": 10,  # Au-dessus du seuil
+                    "z": 10,
                 })
 
-            # Seuil 10% - plus visible avec zone colorée
+            # Zone seuil 10% - zone colorée sans ligne
             series.append({
                 "name": "Seuil 10%",
                 "type": "line",
                 "data": [10] * len(dates),
-                "lineStyle": {
-                    "type": [8, 4],  # Tirets personnalisés
-                    "color": "#ff6b6b",
-                    "width": 2,
-                    "opacity": 0.8
-                },
+                "lineStyle": {"width": 0},  # Pas de ligne
                 "symbol": "none",
-                "itemStyle": {"color": "#ff6b6b"},
-                "z": 1,  # En dessous des courbes
-                "markLine": {
-                    "silent": True,
-                    "symbol": "none",
-                    "label": {
-                        "show": True,
-                        "position": "end",
-                        "formatter": "Seuil T2",
-                        "color": "#ff6b6b",
-                        "fontSize": 11,
-                        "fontWeight": "bold"
-                    }
-                },
+                "itemStyle": {"color": "#ef4444"},
+                "z": 0,
                 "areaStyle": {
-                    "color": "rgba(255, 107, 107, 0.08)",
+                    "color": "rgba(239, 68, 68, 0.15)",
                     "origin": "start"
-                }
+                },
+                "silent": True,
             })
 
-            legend_names = [c.split()[-1] for c in active_candidates]  # Noms de famille (candidats actifs)
+            legend_names = [c.split()[-1] for c in active_candidates]
 
             option = {
                 "tooltip": {
                     "trigger": "axis",
-                    "backgroundColor": "rgba(30, 30, 40, 0.95)",
-                    "borderColor": "rgba(255,255,255,0.1)",
-                    "textStyle": {"color": "#fff", "fontSize": 13},
+                    "backgroundColor": "rgba(20, 20, 20, 0.95)",
+                    "borderColor": "rgba(255,255,255,0.08)",
+                    "borderWidth": 1,
+                    "textStyle": {"color": "#fff", "fontSize": 12},
+                    "padding": [12, 16],
                 },
                 "legend": {
-                    "data": legend_names + ["Seuil 10%"],
-                    "top": 10,
+                    "data": legend_names,
+                    "top": 8,
                     "left": "center",
-                    "textStyle": {"color": "#ccc", "fontSize": 13},
-                    "itemGap": 18,
-                    "itemWidth": 25,
-                    "itemHeight": 14,
+                    "textStyle": {"color": "#9ca3af", "fontSize": 12},
+                    "itemGap": 24,
+                    "itemWidth": 20,
+                    "itemHeight": 10,
+                    "icon": "roundRect",
                 },
                 "grid": {
-                    "left": 60,
-                    "right": 40,
-                    "top": 80,
-                    "bottom": 50,
+                    "left": 55,
+                    "right": 25,
+                    "top": 60,
+                    "bottom": 45,
                     "containLabel": False
                 },
                 "xAxis": {
                     "type": "category",
                     "data": date_labels,
                     "axisLabel": {
-                        "color": "#aaa",
-                        "fontSize": 12,
-                        "margin": 12
+                        "color": "#6b7280",
+                        "fontSize": 11,
+                        "margin": 14
                     },
-                    "axisLine": {"lineStyle": {"color": "#555"}},
-                    "axisTick": {"lineStyle": {"color": "#555"}},
+                    "axisLine": {"show": False},
+                    "axisTick": {"show": False},
+                    "boundaryGap": False,
                 },
                 "yAxis": {
                     "type": "value",
                     "min": 0,
                     "max": 40,
-                    "interval": 5,
+                    "interval": 10,
                     "axisLabel": {
-                        "color": "#aaa",
-                        "fontSize": 12,
+                        "color": "#6b7280",
+                        "fontSize": 11,
                         "formatter": "{value}%"
                     },
                     "splitLine": {
-                        "lineStyle": {"color": "rgba(255,255,255,0.08)"}
+                        "lineStyle": {
+                            "color": "rgba(255,255,255,0.06)",
+                            "type": "solid"
+                        }
                     },
                     "axisLine": {"show": False},
+                    "axisTick": {"show": False},
                 },
                 "series": series,
             }
 
-            st_echarts(options=option, height="450px")
+            st_echarts(options=option, height="420px")
 
-            st.caption("━━ ≥10% · ┅┅ <10% · Sources : IFOP-Fiducial, ELABE, Cluster17")
+            st.markdown("""
+            <p style="color: #6b7280; font-size: 11px; text-align: center; margin-top: 4px;">
+                <span style="color: rgba(239, 68, 68, 0.6);">▮</span> Zone d'élimination (&lt;10%) ·
+                Sources : IFOP, ELABE, Cluster17
+            </p>
+            """, unsafe_allow_html=True)
 
     st.markdown('<div style="height: 20px"></div>', unsafe_allow_html=True)
 
