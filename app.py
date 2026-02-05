@@ -677,14 +677,14 @@ def create_paris_map(seats_by_sector: dict = None, familles: dict = None) -> fol
 
 
 # =============================================================================
-# HEADER - Fira.money style
+# HEADER - Fira.money style (full width)
 # =============================================================================
 
-header_col1, header_col2 = st.columns([3, 1])
-
-with header_col1:
+# Container pour le header
+header_container = st.container()
+with header_container:
     st.markdown("""
-    <div style="background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 12px; padding: 20px;">
+    <div style="background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px;">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
             <div>
                 <h1 style="font-size: 24px; font-weight: 700; color: white; margin: 0;">
@@ -694,38 +694,44 @@ with header_col1:
                     Simulateur électoral | Conseil de Paris | 163 sièges
                 </p>
             </div>
-            <div style="display: flex; align-items: center; gap: 24px;">
-                <div style="text-align: right;">
-                    <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Prime majoritaire</p>
-                    <p style="color: #f97316; font-size: 20px; font-weight: 700; margin: 0;">25%</p>
-                </div>
-                <div style="width: 1px; height: 40px; background: #2a2a2a;"></div>
-                <div style="text-align: right;">
-                    <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Majorité absolue</p>
-                    <p style="color: #22c55e; font-size: 20px; font-weight: 700; margin: 0;">82</p>
-                </div>
-            </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-with header_col2:
-    st.markdown('<div style="height: 8px"></div>', unsafe_allow_html=True)
-    simulate_btn = st.button("▶ Simuler", type="primary", use_container_width=True, key="header_simulate")
-    if simulate_btn:
-        st.session_state["trigger_simulation"] = True
+    # Row avec métriques et boutons
+    hcol1, hcol2, hcol3, hcol4, hcol5 = st.columns([1.5, 1, 1, 1.2, 1.2])
 
-    # Export PDF button (visible only when results exist)
-    if "r1" in st.session_state or "final_seats" in st.session_state:
-        if st.button("📄 Export", key="export_pdf_btn", use_container_width=True):
-            st.session_state["show_pdf_export"] = True
+    with hcol1:
+        mode_expert = st.toggle("Mode expert", value=False, key="mode_expert")
 
-st.markdown('<div style="height: 8px"></div>', unsafe_allow_html=True)
+    with hcol2:
+        st.markdown("""
+        <div style="text-align: center;">
+            <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Prime</p>
+            <p style="color: #f97316; font-size: 22px; font-weight: 700; margin: 0;">25%</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns([1, 2, 1])
+    with hcol3:
+        st.markdown("""
+        <div style="text-align: center;">
+            <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Majorité</p>
+            <p style="color: #22c55e; font-size: 22px; font-weight: 700; margin: 0;">82</p>
+        </div>
+        """, unsafe_allow_html=True)
 
-with col1:
-    mode_expert = st.toggle("Mode expert", value=False, key="mode_expert")
+    with hcol4:
+        simulate_btn = st.button("▶ Simuler", type="primary", use_container_width=True, key="header_simulate")
+        if simulate_btn:
+            st.session_state["trigger_simulation"] = True
+
+    with hcol5:
+        # Export PDF button (visible only when results exist)
+        if "r1" in st.session_state or "final_seats" in st.session_state:
+            if st.button("📄 Export", key="export_pdf_btn", use_container_width=True):
+                st.session_state["show_pdf_export"] = True
+        else:
+            st.markdown('<div style="height: 38px"></div>', unsafe_allow_html=True)
 
 # =============================================================================
 # DONNÉES DES SONDAGES
