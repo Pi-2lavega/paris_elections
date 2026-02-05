@@ -680,42 +680,52 @@ def create_paris_map(seats_by_sector: dict = None, familles: dict = None) -> fol
 # HEADER - Fira.money style
 # =============================================================================
 
-st.markdown("""
-<div style="background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 12px; padding: 20px; margin-bottom: 16px;">
-    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
-        <div>
-            <h1 style="font-size: 24px; font-weight: 700; color: white; margin: 0;">
-                Municipales Paris <span style="color: #f97316;">2026</span>
-            </h1>
-            <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">
-                Simulateur électoral | Conseil de Paris | 163 sièges
-            </p>
-        </div>
-        <div style="display: flex; align-items: center; gap: 24px;">
-            <div style="text-align: right;">
-                <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Prime majoritaire</p>
-                <p style="color: #f97316; font-size: 20px; font-weight: 700; margin: 0;">25%</p>
+header_col1, header_col2 = st.columns([3, 1])
+
+with header_col1:
+    st.markdown("""
+    <div style="background: #0f0f0f; border: 1px solid #1a1a1a; border-radius: 12px; padding: 20px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;">
+            <div>
+                <h1 style="font-size: 24px; font-weight: 700; color: white; margin: 0;">
+                    Municipales Paris <span style="color: #f97316;">2026</span>
+                </h1>
+                <p style="color: #6b7280; font-size: 13px; margin: 4px 0 0 0;">
+                    Simulateur électoral | Conseil de Paris | 163 sièges
+                </p>
             </div>
-            <div style="width: 1px; height: 40px; background: #2a2a2a;"></div>
-            <div style="text-align: right;">
-                <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Majorité absolue</p>
-                <p style="color: #22c55e; font-size: 20px; font-weight: 700; margin: 0;">82</p>
+            <div style="display: flex; align-items: center; gap: 24px;">
+                <div style="text-align: right;">
+                    <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Prime majoritaire</p>
+                    <p style="color: #f97316; font-size: 20px; font-weight: 700; margin: 0;">25%</p>
+                </div>
+                <div style="width: 1px; height: 40px; background: #2a2a2a;"></div>
+                <div style="text-align: right;">
+                    <p style="color: #6b7280; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; margin: 0;">Majorité absolue</p>
+                    <p style="color: #22c55e; font-size: 20px; font-weight: 700; margin: 0;">82</p>
+                </div>
             </div>
         </div>
     </div>
-</div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
+
+with header_col2:
+    st.markdown('<div style="height: 8px"></div>', unsafe_allow_html=True)
+    simulate_btn = st.button("▶ Simuler", type="primary", use_container_width=True, key="header_simulate")
+    if simulate_btn:
+        st.session_state["trigger_simulation"] = True
+
+    # Export PDF button (visible only when results exist)
+    if "r1" in st.session_state or "final_seats" in st.session_state:
+        if st.button("📄 Export", key="export_pdf_btn", use_container_width=True):
+            st.session_state["show_pdf_export"] = True
+
+st.markdown('<div style="height: 8px"></div>', unsafe_allow_html=True)
 
 col1, col2, col3 = st.columns([1, 2, 1])
 
 with col1:
     mode_expert = st.toggle("Mode expert", value=False, key="mode_expert")
-
-with col3:
-    # Export PDF button (visible only when results exist)
-    if "r1" in st.session_state or "final_seats" in st.session_state:
-        if st.button("📄 Export", key="export_pdf_btn"):
-            st.session_state["show_pdf_export"] = True
 
 # =============================================================================
 # DONNÉES DES SONDAGES
@@ -1184,12 +1194,8 @@ with tab1:
 
     st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
-    # Simulate button
-    col1, col2, col3 = st.columns([1, 1, 1])
-    with col2:
-        simulate_t1 = st.button("Simuler le 1er tour →", type="primary", use_container_width=True)
-
-    if simulate_t1:
+    # Simulation triggered from header button
+    if st.session_state.get("trigger_simulation"):
         inscrits = 1_400_000
         exprimes = int(inscrits * participation_t1)
 
@@ -1220,8 +1226,9 @@ with tab1:
         st.session_state["familles_t1"] = familles_t1
         st.session_state["participation_t1"] = participation_t1
         st.session_state["inscrits"] = inscrits
+        st.session_state["trigger_simulation"] = False  # Reset trigger
 
-        st.success("Premier tour simulé")
+        st.success("✓ Simulation effectuée")
 
     # Results T1
     if "r1" in st.session_state:
