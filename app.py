@@ -833,6 +833,54 @@ SONDAGES = {
 }
 
 # =============================================================================
+# SCÉNARIOS DE SECOND TOUR (IFOP-Fiducial, janvier 2026)
+# =============================================================================
+
+SCENARIOS_T2 = {
+    "Duel Grégoire-Dati": {
+        "description": "Face à face gauche-droite",
+        "source": "IFOP-Fiducial, 24 janvier 2026",
+        "listes": [
+            {"nom": "Emmanuel Grégoire", "famille": "PS", "score": 50.0},
+            {"nom": "Rachida Dati", "famille": "LR", "score": 50.0},
+        ],
+    },
+    "Triangulaire + LFI": {
+        "description": "Chikirou se maintient → avantage Dati",
+        "source": "IFOP-Fiducial, 24 janvier 2026",
+        "listes": [
+            {"nom": "Rachida Dati", "famille": "LR", "score": 45.0},
+            {"nom": "Emmanuel Grégoire", "famille": "PS", "score": 41.0},
+            {"nom": "Sophia Chikirou", "famille": "LFI", "score": 14.0},
+        ],
+    },
+    "Triangulaire + Horizons": {
+        "description": "Bournazel se maintient → avantage Grégoire",
+        "source": "IFOP-Fiducial, 24 janvier 2026",
+        "listes": [
+            {"nom": "Emmanuel Grégoire", "famille": "PS", "score": 43.0},
+            {"nom": "Rachida Dati", "famille": "LR", "score": 41.0},
+            {"nom": "Pierre-Yves Bournazel", "famille": "REN", "score": 16.0},
+        ],
+    },
+    "Quadrangulaire": {
+        "description": "LFI + Reconquête se maintiennent → match nul",
+        "source": "IFOP-Fiducial, 24 janvier 2026",
+        "listes": [
+            {"nom": "Emmanuel Grégoire", "famille": "PS", "score": 38.0},
+            {"nom": "Rachida Dati", "famille": "LR", "score": 38.0},
+            {"nom": "Sophia Chikirou", "famille": "LFI", "score": 12.0},
+            {"nom": "Sarah Knafo", "famille": "REC", "score": 12.0},
+        ],
+    },
+    "Personnalisé": {
+        "description": "Configurer manuellement",
+        "source": "",
+        "listes": [],
+    },
+}
+
+# =============================================================================
 # INITIALISATION
 # =============================================================================
 
@@ -1308,11 +1356,100 @@ with tab1:
 with tab2:
     st.markdown('<div style="height: 20px"></div>', unsafe_allow_html=True)
 
+    # Sélecteur de scénario T2 (toujours visible)
+    st.markdown('<p class="section-header">Scénarios de second tour (IFOP-Fiducial)</p>', unsafe_allow_html=True)
+
+    scenario_col1, scenario_col2 = st.columns([2, 3])
+
+    with scenario_col1:
+        scenario_options = list(SCENARIOS_T2.keys())
+        selected_scenario = st.selectbox(
+            "Hypothèse",
+            options=scenario_options,
+            index=0,
+            key="scenario_t2_select",
+            label_visibility="collapsed"
+        )
+
+    with scenario_col2:
+        scenario_data = SCENARIOS_T2[selected_scenario]
+        if scenario_data["source"]:
+            st.markdown(f"""
+            <div style="padding: 8px 16px; background: rgba(249, 115, 22, 0.1); border-radius: 8px;
+                        border: 1px solid rgba(249, 115, 22, 0.3); color: rgba(255,255,255,0.8); font-size: 13px;">
+                <strong style="color: #f97316;">{scenario_data['description']}</strong>
+                <span style="color: #6b7280; margin-left: 8px;">— {scenario_data['source']}</span>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(f"""
+            <div style="padding: 8px 16px; background: rgba(255,255,255,0.05); border-radius: 8px;
+                        border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); font-size: 13px;">
+                {scenario_data['description']}
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Afficher les scores du scénario sélectionné
+    if selected_scenario != "Personnalisé" and scenario_data["listes"]:
+        st.markdown('<div style="height: 16px"></div>', unsafe_allow_html=True)
+
+        # Afficher les listes du scénario
+        scenario_cols = st.columns(len(scenario_data["listes"]))
+        for idx, liste in enumerate(scenario_data["listes"]):
+            with scenario_cols[idx]:
+                color = get_color(liste["famille"])
+                is_winner = liste["score"] == max(l["score"] for l in scenario_data["listes"])
+                border_color = "#22c55e" if is_winner else "#2a2a2a"
+                st.markdown(f"""
+                <div style="background: #141414; border: 2px solid {border_color}; border-radius: 8px;
+                            padding: 12px; text-align: center;">
+                    <div style="width: 12px; height: 12px; border-radius: 50%; background: {color};
+                                margin: 0 auto 8px auto;"></div>
+                    <p style="color: white; font-weight: 600; margin: 0; font-size: 14px;">
+                        {liste['nom'].split()[-1]}
+                    </p>
+                    <p style="color: #f97316; font-size: 24px; font-weight: 700; margin: 4px 0 0 0;">
+                        {liste['score']:.0f}%
+                    </p>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown('<div style="height: 8px"></div>', unsafe_allow_html=True)
+
+        # Bouton pour simuler ce scénario
+        if st.button("▶ Simuler ce scénario", type="primary", key="simulate_scenario_t2"):
+            # Créer les votes pour ce scénario
+            inscrits = st.session_state.get("inscrits", 1_400_000)
+            participation = st.session_state.get("participation_t1", 0.5)
+            exprimes = int(inscrits * participation)
+
+            votes_t2 = {}
+            familles_t2 = {}
+            for liste in scenario_data["listes"]:
+                votes_t2[liste["nom"]] = int(liste["score"] / 100 * exprimes)
+                familles_t2[liste["nom"]] = liste["famille"]
+
+            st.session_state["votes_t2"] = votes_t2
+            st.session_state["listes_t2"] = scenario_data["listes"]
+            st.session_state["familles_t1"] = familles_t2  # Update families
+
+            # Run simulation
+            r2 = run_round2(votes_t2, CONSEIL_PARIS_SEATS, CONSEIL_PARIS_BONUS_FRACTION)
+            st.session_state["r2"] = r2
+            st.session_state["final_seats"] = r2.seats
+
+            st.success("✓ Scénario simulé — voir l'onglet Résultats")
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+
+    # Section configuration manuelle (si T1 simulé)
     if "r1" not in st.session_state:
-        st.info("Simulez d'abord le premier tour")
+        st.info("💡 Simulez d'abord le premier tour pour configurer manuellement les retraits et fusions")
     elif st.session_state["r1"].resolved:
         st.info("L'élection a été décidée au premier tour")
     else:
+        st.markdown('<p class="section-header">Configuration manuelle</p>', unsafe_allow_html=True)
+
         r1 = st.session_state["r1"]
         votes_t1 = st.session_state["votes_t1"]
         familles_t1 = st.session_state.get("familles_t1", {})
