@@ -677,6 +677,182 @@ def create_paris_map(seats_by_sector: dict = None, familles: dict = None) -> fol
 
 
 # =============================================================================
+# HÉMICYCLE INTERACTIF - Conseil de Paris (163 sièges)
+# =============================================================================
+
+def generate_hemicycle_option(seats: dict, familles: dict) -> dict:
+    """Génère les options ECharts pour un hémicycle du Conseil de Paris.
+
+    Args:
+        seats: dict liste → nombre de sièges
+        familles: dict liste → famille politique
+
+    Returns:
+        Options ECharts pour le graphique.
+    """
+    import math
+
+    total_seats = CONSEIL_PARIS_SEATS  # 163
+    n_rows = 7  # Nombre de rangées dans l'hémicycle
+
+    # Distribution des sièges par rangée (plus de sièges sur les rangées extérieures)
+    seats_per_row = []
+    for row in range(n_rows):
+        # Formule pour avoir plus de sièges sur les rangées extérieures
+        radius_factor = 0.4 + (row / (n_rows - 1)) * 0.6
+        row_seats = int(17 + row * 4)  # 17, 21, 25, 29, 33, 37, 41
+        seats_per_row.append(row_seats)
+
+    # Ajuster pour avoir exactement 163 sièges
+    total_in_rows = sum(seats_per_row)
+    if total_in_rows != total_seats:
+        # Ajuster la dernière rangée
+        seats_per_row[-1] += (total_seats - total_in_rows)
+
+    # Calculer les positions de chaque siège
+    seat_positions = []
+    seat_colors = []
+    seat_labels = []
+
+    # Trier les listes par famille et nombre de sièges pour le placement
+    sorted_seats = sorted(seats.items(), key=lambda x: -x[1])
+
+    # Créer la liste ordonnée des sièges par couleur (groupés par bloc)
+    bloc_order = ["Gauche", "Centre", "Droite", "Ext. Droite", "Autre"]
+    ordered_seats = []
+
+    for bloc in bloc_order:
+        for liste, n in sorted_seats:
+            famille = familles.get(liste, "DIV")
+            liste_bloc = get_bloc(famille)
+            if liste_bloc == bloc and n > 0:
+                for _ in range(n):
+                    ordered_seats.append({
+                        "liste": liste,
+                        "famille": famille,
+                        "color": get_color(famille)
+                    })
+
+    # Remplir les rangées
+    seat_index = 0
+    for row in range(n_rows):
+        n_seats_row = seats_per_row[row]
+        radius = 0.35 + (row * 0.09)  # Rayons croissants
+
+        for i in range(n_seats_row):
+            if seat_index >= len(ordered_seats):
+                break
+
+            # Angle de -180° à 0° (demi-cercle supérieur)
+            angle = math.pi - (i / (n_seats_row - 1)) * math.pi if n_seats_row > 1 else math.pi / 2
+
+            x = 0.5 + radius * math.cos(angle)
+            y = 0.1 + radius * math.sin(angle) * 0.85  # Légèrement aplati
+
+            seat_data = ordered_seats[seat_index]
+            seat_positions.append([x, y])
+            seat_colors.append(seat_data["color"])
+            seat_labels.append(f"{seat_data['liste']} ({seat_data['famille']})")
+            seat_index += 1
+
+    # Créer les séries ECharts
+    scatter_data = []
+    for i, (pos, color, label) in enumerate(zip(seat_positions, seat_colors, seat_labels)):
+        scatter_data.append({
+            "value": pos,
+            "itemStyle": {"color": color},
+            "name": label
+        })
+
+    # Légende par famille
+    legend_data = []
+    famille_seats = {}
+    for liste, n in seats.items():
+        if n > 0:
+            famille = familles.get(liste, "DIV")
+            famille_seats[famille] = famille_seats.get(famille, 0) + n
+
+    for famille, n in sorted(famille_seats.items(), key=lambda x: -x[1]):
+        legend_data.append({
+            "name": f"{famille} ({n})",
+            "icon": "circle",
+            "itemStyle": {"color": get_color(famille)}
+        })
+
+    option = {
+        "backgroundColor": "transparent",
+        "tooltip": {
+            "trigger": "item",
+            "formatter": "{b}",
+            "backgroundColor": "rgba(20, 20, 20, 0.95)",
+            "borderColor": "rgba(255,255,255,0.1)",
+            "textStyle": {"color": "#fff", "fontSize": 12}
+        },
+        "legend": {
+            "data": [d["name"] for d in legend_data],
+            "bottom": 10,
+            "textStyle": {"color": "#9ca3af", "fontSize": 11},
+            "itemGap": 15,
+            "itemWidth": 12,
+            "itemHeight": 12,
+        },
+        "graphic": [
+            {
+                "type": "text",
+                "left": "center",
+                "top": "60%",
+                "style": {
+                    "text": f"{total_seats}",
+                    "fontSize": 42,
+                    "fontWeight": "bold",
+                    "fill": "#ffffff",
+                    "textAlign": "center"
+                }
+            },
+            {
+                "type": "text",
+                "left": "center",
+                "top": "72%",
+                "style": {
+                    "text": "sièges",
+                    "fontSize": 14,
+                    "fill": "#6b7280",
+                    "textAlign": "center"
+                }
+            },
+            {
+                "type": "text",
+                "left": "center",
+                "top": "80%",
+                "style": {
+                    "text": f"Majorité : {MAYOR_ABSOLUTE_MAJORITY}",
+                    "fontSize": 12,
+                    "fill": "#ef4444",
+                    "textAlign": "center"
+                }
+            }
+        ],
+        "series": [{
+            "type": "scatter",
+            "data": scatter_data,
+            "symbolSize": 10,
+            "emphasis": {
+                "itemStyle": {
+                    "borderColor": "#fff",
+                    "borderWidth": 2
+                },
+                "scale": 1.5
+            }
+        }],
+        "xAxis": {"show": False, "min": 0, "max": 1},
+        "yAxis": {"show": False, "min": 0, "max": 1},
+        "grid": {"left": 0, "right": 0, "top": 0, "bottom": 60}
+    }
+
+    return option
+
+
+# =============================================================================
 # HEADER - Fira.money style (full width)
 # =============================================================================
 
@@ -836,6 +1012,76 @@ SONDAGES = {
 # SCÉNARIOS DE SECOND TOUR (IFOP-Fiducial, janvier 2026)
 # =============================================================================
 
+# =============================================================================
+# SCÉNARIOS DE PREMIER TOUR (hypothèses politiques)
+# =============================================================================
+
+SCENARIOS_T1 = {
+    "Sondage actuel": {
+        "description": "Derniers sondages disponibles",
+        "source": "Cluster17, 2 février 2026",
+        "listes": [
+            {"nom": "Emmanuel Grégoire", "parti": "PS-Écolos-PCF", "famille": "PS", "score": 33.0},
+            {"nom": "Rachida Dati", "parti": "LR-MoDem-UDI", "famille": "LR", "score": 26.0},
+            {"nom": "Pierre-Yves Bournazel", "parti": "Horizons-Renaissance", "famille": "REN", "score": 14.0},
+            {"nom": "Sophia Chikirou", "parti": "LFI", "famille": "LFI", "score": 11.0},
+            {"nom": "Sarah Knafo", "parti": "Reconquête", "famille": "REC", "score": 10.0},
+            {"nom": "Thierry Mariani", "parti": "RN", "famille": "RN", "score": 4.0},
+        ],
+    },
+    "Gauche unie": {
+        "description": "PS + LFI + EELV fusionnent avant le T1",
+        "source": "Hypothèse",
+        "listes": [
+            {"nom": "Liste Gauche Unie", "parti": "PS-LFI-EELV-PCF", "famille": "PS", "score": 44.0},
+            {"nom": "Rachida Dati", "parti": "LR-MoDem-UDI", "famille": "LR", "score": 26.0},
+            {"nom": "Pierre-Yves Bournazel", "parti": "Horizons-Renaissance", "famille": "REN", "score": 14.0},
+            {"nom": "Sarah Knafo", "parti": "Reconquête", "famille": "REC", "score": 10.0},
+            {"nom": "Thierry Mariani", "parti": "RN", "famille": "RN", "score": 4.0},
+        ],
+    },
+    "Droite unie": {
+        "description": "LR + Renaissance forment une alliance",
+        "source": "Hypothèse",
+        "listes": [
+            {"nom": "Emmanuel Grégoire", "parti": "PS-Écolos-PCF", "famille": "PS", "score": 33.0},
+            {"nom": "Liste Droite-Centre", "parti": "LR-REN-MoDem-UDI", "famille": "LR", "score": 38.0},
+            {"nom": "Sophia Chikirou", "parti": "LFI", "famille": "LFI", "score": 11.0},
+            {"nom": "Sarah Knafo", "parti": "Reconquête", "famille": "REC", "score": 10.0},
+            {"nom": "Thierry Mariani", "parti": "RN", "famille": "RN", "score": 6.0},
+        ],
+    },
+    "Fragmentation maximale": {
+        "description": "Toutes les forces divisées",
+        "source": "Hypothèse",
+        "listes": [
+            {"nom": "Rachida Dati", "parti": "LR-MoDem-UDI", "famille": "LR", "score": 24.0},
+            {"nom": "Emmanuel Grégoire", "parti": "PS-PCF", "famille": "PS", "score": 20.0},
+            {"nom": "Pierre-Yves Bournazel", "parti": "Horizons-Renaissance", "famille": "REN", "score": 14.0},
+            {"nom": "David Belliard", "parti": "EELV", "famille": "EELV", "score": 13.0},
+            {"nom": "Sophia Chikirou", "parti": "LFI", "famille": "LFI", "score": 12.0},
+            {"nom": "Sarah Knafo", "parti": "Reconquête", "famille": "REC", "score": 9.0},
+            {"nom": "Thierry Mariani", "parti": "RN", "famille": "RN", "score": 6.0},
+        ],
+    },
+    "Poussée extrême droite": {
+        "description": "RN + REC à 20% combinés",
+        "source": "Hypothèse",
+        "listes": [
+            {"nom": "Emmanuel Grégoire", "parti": "PS-Écolos-PCF", "famille": "PS", "score": 30.0},
+            {"nom": "Rachida Dati", "parti": "LR-MoDem-UDI", "famille": "LR", "score": 24.0},
+            {"nom": "Pierre-Yves Bournazel", "parti": "Horizons-Renaissance", "famille": "REN", "score": 12.0},
+            {"nom": "Sarah Knafo", "parti": "Reconquête", "famille": "REC", "score": 13.0},
+            {"nom": "Sophia Chikirou", "parti": "LFI", "famille": "LFI", "score": 10.0},
+            {"nom": "Thierry Mariani", "parti": "RN", "famille": "RN", "score": 9.0},
+        ],
+    },
+}
+
+# =============================================================================
+# SCÉNARIOS DE SECOND TOUR (IFOP-Fiducial, janvier 2026)
+# =============================================================================
+
 SCENARIOS_T2 = {
     "Duel Grégoire-Dati": {
         "description": "Face à face gauche-droite",
@@ -904,6 +1150,57 @@ tab1, tab2, tab3 = st.tabs(["Premier Tour", "Second Tour", "Résultats"])
 
 with tab1:
     st.markdown('<div style="height: 20px"></div>', unsafe_allow_html=True)
+
+    # =========================================================================
+    # SCÉNARIOS PRÉDÉFINIS T1
+    # =========================================================================
+    st.markdown('<p class="section-header">Scénarios prédéfinis</p>', unsafe_allow_html=True)
+
+    scenario_t1_cols = st.columns(len(SCENARIOS_T1))
+    for idx, (scenario_name, scenario_data) in enumerate(SCENARIOS_T1.items()):
+        with scenario_t1_cols[idx]:
+            # Card avec couleur selon le type
+            if "Gauche" in scenario_name:
+                border_color = "#ef4444"
+            elif "Droite" in scenario_name:
+                border_color = "#3b82f6"
+            elif "extrême" in scenario_name.lower():
+                border_color = "#1a1a2e"
+            elif "Fragmentation" in scenario_name:
+                border_color = "#f97316"
+            else:
+                border_color = "#2a2a2a"
+
+            is_selected = st.session_state.get("selected_scenario_t1") == scenario_name
+
+            st.markdown(f"""
+            <div style="background: {'#1a1a1a' if is_selected else '#141414'};
+                        border: 2px solid {border_color if is_selected else '#2a2a2a'};
+                        border-radius: 8px; padding: 12px; text-align: center; height: 100px;
+                        display: flex; flex-direction: column; justify-content: center;">
+                <p style="color: white; font-weight: 600; margin: 0; font-size: 12px;">
+                    {scenario_name}
+                </p>
+                <p style="color: #6b7280; font-size: 10px; margin: 4px 0 0 0;">
+                    {scenario_data['description'][:30]}{'...' if len(scenario_data['description']) > 30 else ''}
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            if st.button("Charger", key=f"load_scenario_t1_{idx}", use_container_width=True):
+                st.session_state["selected_scenario_t1"] = scenario_name
+                st.session_state["sondage_selectionne"] = "Personnalisé"
+                st.session_state["listes"] = copy.deepcopy(scenario_data["listes"])
+                # Reset les clés des widgets
+                for i in range(20):
+                    for key in [f"nom_{i}", f"parti_{i}", f"famille_{i}", f"score_{i}"]:
+                        if key in st.session_state:
+                            del st.session_state[key]
+                if "r1" in st.session_state:
+                    del st.session_state["r1"]
+                st.rerun()
+
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
 
     # Sélecteur de sondage
     st.markdown('<p class="section-header">Sélectionner un sondage</p>', unsafe_allow_html=True)
@@ -1715,6 +2012,13 @@ with tab3:
             )
 
             st.plotly_chart(fig, use_container_width=True)
+
+            # Hémicycle
+            st.markdown('<div style="height: 24px"></div>', unsafe_allow_html=True)
+            st.markdown('<p class="section-header">Hémicycle du Conseil de Paris</p>', unsafe_allow_html=True)
+
+            hemicycle_option = generate_hemicycle_option(seats, familles_t1)
+            st_echarts(options=hemicycle_option, height="400px")
 
         with col2:
             st.markdown('<p class="section-header">Analyse</p>', unsafe_allow_html=True)
