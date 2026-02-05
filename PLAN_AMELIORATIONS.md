@@ -63,9 +63,9 @@
 - [ ] Scénarios de coalition (gauche+centre, droite+centre, etc.)
 
 ### 3.3 Scénarios prédéfinis
-- [ ] "Gauche unie" : PS+EELV+PCF fusionnent dès le T1
-- [ ] "Droite unie" : LR+REN alliance
-- [ ] "Fragmentation maximale" : aucune fusion
+- [x] "Gauche unie" : PS+EELV+PCF fusionnent dès le T1
+- [x] "Droite unie" : LR+REN alliance
+- [x] "Fragmentation maximale" : aucune fusion
 - [ ] "Front républicain" : désistements croisés anti-RN/REC
 - [ ] Import/export de scénarios (JSON)
 
@@ -79,9 +79,9 @@
 ## 4. Visualisations
 
 ### 4.1 Hémicycle interactif
-- [ ] Diagramme en demi-cercle du Conseil de Paris (163 sièges)
-- [ ] Coloration par famille politique
-- [ ] Ligne de majorité (82 sièges)
+- [x] Diagramme en demi-cercle du Conseil de Paris (163 sièges)
+- [x] Coloration par famille politique
+- [x] Ligne de majorité (82 sièges)
 - [ ] Animation de la répartition
 
 ### 4.2 Carte choroplèthe
@@ -157,8 +157,8 @@
 
 ### Phase 2 — Moyen terme (1 mois)
 1. Carte choroplèthe par arrondissement ✅
-2. Hémicycle interactif
-3. Scénarios prédéfinis (3-4 scénarios)
+2. Hémicycle interactif ✅
+3. Scénarios prédéfinis (3-4 scénarios) ✅
 4. Mode simplifié vs expert ✅
 
 ### Phase 3 — Long terme (2-3 mois)
